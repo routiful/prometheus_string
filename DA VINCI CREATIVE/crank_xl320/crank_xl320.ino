@@ -41,7 +41,7 @@ const uint8_t moving_speed_handler = 1;
 void setup() 
 {
   Serial.begin(57600);
-//  while(!Serial); // Wait for Opening Serial Monitor
+  while(!Serial); // Wait for Opening Serial Monitor
 
   pinMode(analogInPin, INPUT_ANALOG);
 
@@ -158,11 +158,15 @@ void move(uint32_t move_time, int32_t a, int32_t b)
   const char *log;
   bool result = false;
   
-  result = dxl_wb.syncWrite(goal_position_handler, &goal_position[0], &log);
-  if (result == false)
+//  result = dxl_wb.syncWrite(goal_position_handler, &goal_position[0], &log);
+//  if (result == false)
+//  {
+//    Serial.println(log);
+//    Serial.println("Failed to sync write position");
+//  }
+  for (int id = 0; id < DXL_CNT; id++)
   {
-    Serial.println(log);
-    Serial.println("Failed to sync write position");
+    dxl_wb.goalPosition(id, goal_position[0]);
   }
 
   delay(move_time + 10);
@@ -171,14 +175,18 @@ void move(uint32_t move_time, int32_t a, int32_t b)
 void speed(int32_t a, int32_t b)
 {
   set_speed(a, b);
-  
-  const char *log;
-  bool result = false;
-  
-  result = dxl_wb.syncWrite(moving_speed_handler, &moving_speed[0], &log);
-  if (result == false)
+  for (int id = 0; id < DXL_CNT; id++)
   {
-    Serial.println(log);
-    Serial.println("Failed to sync moving speed");
+    dxl_wb.goalVelocity(id, moving_speed[0]);
   }
+  
+//  const char *log;
+//  bool result = false;
+//  
+//  result = dxl_wb.syncWrite(moving_speed_handler, &moving_speed[0], &log);
+//  if (result == false)
+//  {
+//    Serial.println(log);
+//    Serial.println("Failed to sync moving speed");
+//  }
 }
