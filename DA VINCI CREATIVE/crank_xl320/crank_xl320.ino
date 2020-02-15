@@ -25,8 +25,7 @@
 #endif   
 
 #define BAUDRATE  1000000
-#define DXL_ID_1  1
-#define DXL_ID_2  3
+#define DXL_CNT 10
 
 const int analogInPin = 0;
 int sonic_data;
@@ -50,7 +49,7 @@ void setup()
   bool result = false;
 
   uint16_t model_number = 0;
-  uint8_t dxl_id[2] = {DXL_ID_1, DXL_ID_2};
+  uint8_t dxl_id[DXL_CNT] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
   result = dxl_wb.init(DEVICE_NAME, BAUDRATE, &log);
   if (result == false)
@@ -64,7 +63,7 @@ void setup()
     Serial.println(BAUDRATE);  
   }
 
-  for (int cnt = 0; cnt < 2; cnt++)
+  for (int cnt = 0; cnt < DXL_CNT; cnt++)
   {
     result = dxl_wb.ping(dxl_id[cnt], &model_number, &log);
     if (result == false)
