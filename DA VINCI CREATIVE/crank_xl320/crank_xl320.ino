@@ -63,7 +63,7 @@ void setup()
     Serial.println(BAUDRATE);  
   }
 
-  for (int cnt = 0; cnt < DXL_CNT; cnt++)
+  for (int cnt = 1; cnt <= DXL_CNT; cnt++)
   {
     result = dxl_wb.ping(dxl_id[cnt], &model_number, &log);
     if (result == false)
@@ -91,20 +91,6 @@ void setup()
       Serial.println("Succeed to change joint mode");
     }
   } 
-
-  result = dxl_wb.addSyncWriteHandler(dxl_id[0], "Goal_Position", &log);
-  if (result == false)
-  {
-    Serial.println(log);
-    Serial.println("Failed to add sync write handler");
-  }
-
-  result = dxl_wb.addSyncWriteHandler(dxl_id[0], "Moving_Speed", &log);
-  if (result == false)
-  {
-    Serial.println(log);
-    Serial.println("Failed to add sync write handler");
-  }
 }
 
 void loop() 
@@ -154,17 +140,8 @@ void set_speed(int32_t a, int32_t b)
 void move(uint32_t move_time, int32_t a, int32_t b)
 {
   set_position(a, b);
-  
-  const char *log;
-  bool result = false;
-  
-//  result = dxl_wb.syncWrite(goal_position_handler, &goal_position[0], &log);
-//  if (result == false)
-//  {
-//    Serial.println(log);
-//    Serial.println("Failed to sync write position");
-//  }
-  for (int id = 0; id < DXL_CNT; id++)
+
+  for (int id = 1; id <= DXL_CNT; id++)
   {
     dxl_wb.goalPosition(id, goal_position[0]);
   }
@@ -175,18 +152,9 @@ void move(uint32_t move_time, int32_t a, int32_t b)
 void speed(int32_t a, int32_t b)
 {
   set_speed(a, b);
-  for (int id = 0; id < DXL_CNT; id++)
+  
+  for (int id = 1; id <= DXL_CNT; id++)
   {
     dxl_wb.goalVelocity(id, moving_speed[0]);
   }
-  
-//  const char *log;
-//  bool result = false;
-//  
-//  result = dxl_wb.syncWrite(moving_speed_handler, &moving_speed[0], &log);
-//  if (result == false)
-//  {
-//    Serial.println(log);
-//    Serial.println("Failed to sync moving speed");
-//  }
 }
