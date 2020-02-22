@@ -2,6 +2,7 @@
 #include <SoftwareSerial.h>
 
 #define FRONT_DXL 1
+#define LEFT_DXL  2
 #define ROOM_DXL  4
 
 #define UP  -1 // CW
@@ -33,16 +34,19 @@ typedef enum
   WAIT_FLAG = 0,
   FRONT_DXL_UP,
   ROOM_DXL_UP,
+  LEFT_DXL_UP,
   FRONT_DXL_DOWN,
   ROOM_DXL_DOWN,
-  BOTH_DXL_UP,
-  BOTH_DXL_DOWN
+  LEFT_DXL_DOWN,
+  ALL_DXL_UP,
+  ALL_DXL_DOWN
 }State;
 
 State state;
 
 int32_t front_dxl_des_pos = 0;
 int32_t room_dxl_des_pos = 0;
+int32_t left_dxl_des_pos = 0;
 
 void setInitAngle(uint8_t id, int32_t angle)
 {
@@ -63,6 +67,10 @@ void updateDesiredPosition(uint8_t which_dxl, int32_t dir, int32_t offset)
   else if (which_dxl == ROOM_DXL)
   {
     room_dxl_des_pos = room_dxl_des_pos + (dir * offset);
+  }
+  else if (which_dxl == LEFT_DXL)
+  {
+    left_dxl_des_pos = left_dxl_des_pos + (dir * offset);
   }
 }
 
@@ -87,6 +95,10 @@ int32_t diff(uint8_t which_dxl)
   else if (which_dxl == ROOM_DXL)
   {
     return abs(dxl.getCurPosition(ROOM_DXL) - room_dxl_des_pos);
+  }
+  else if (which_dxl == LEFT_DXL)
+  {
+    return abs(dxl.getCurPosition(LEFT_DXL) - left_dxl_des_pos);
   }
 
   return 0;
@@ -156,10 +168,14 @@ void dxlDebugMsg()
   Serial.print(dxl.getCurPosition(FRONT_DXL));
   Serial.print("  ");
   Serial.print(dxl.getCurPosition(ROOM_DXL));
+  Serial.print("  ");
+  Serial.print(dxl.getCurPosition(LEFT_DXL));
   Serial.print(" diff_position : ");
   Serial.print(abs(dxl.getCurPosition(FRONT_DXL) - front_dxl_des_pos));
   Serial.print("  ");
-  Serial.println(abs(dxl.getCurPosition(ROOM_DXL) - room_dxl_des_pos));
+  Serial.print(abs(dxl.getCurPosition(ROOM_DXL) - room_dxl_des_pos));
+  Serial.print("  ");
+  Serial.println(abs(dxl.getCurPosition(LEFT_DXL) - left_dxl_des_pos));
 }
 
 void ultraDebugMsg()
@@ -185,16 +201,19 @@ void setup()
   dxl.torqueOff(DXL_ALL_ID);
   dxl.setWheelMode(FRONT_DXL);
   dxl.setWheelMode(ROOM_DXL);
+  dxl.setWheelMode(LEFT_DXL);
   dxl.torqueOn(DXL_ALL_ID);     
 
   int32_t profile_acc = PRIFILE_ACC;
   
   dxl.write(FRONT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
   dxl.write(ROOM_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
+  dxl.write(LEFT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
 //bool DynamixelShield::write(uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout)
 
   front_dxl_des_pos = dxl.getCurPosition(FRONT_DXL);
   room_dxl_des_pos = dxl.getCurPosition(ROOM_DXL);
+  left_dxl_des_pos = dxl.getCurPosition(LEFT_DXL);
 
   updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
 
@@ -246,12 +265,28 @@ void loop()
           stop(ROOM_DXL, TIME_OUT);
           musicStop();
           
+          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
+          state = LEFT_DXL_UP;          
+        }
+        else
+        {
+          move(ROOM_DXL, UP, MOTOR_SPEED);
+          musicStart();
+        }
+        break;
+
+      case LEFT_DXL_UP:
+        if (diff(LEFT_DXL) < DIFF_OFFSET)
+        {
+          stop(LEFT_DXL, TIME_OUT);
+          musicStop();
+          
           updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
           state = FRONT_DXL_DOWN;          
         }
         else
         {
-          move(ROOM_DXL, UP, MOTOR_SPEED);
+          move(LEFT_DXL, UP, MOTOR_SPEED);
           musicStart();
         }
         break;
@@ -278,9 +313,8 @@ void loop()
           stop(ROOM_DXL, TIME_OUT);
           musicStop();
           
-          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
-          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
-          state = BOTH_DXL_UP;          
+          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
+          state = LEFT_DXL_DOWN;          
         }
         else
         {
@@ -289,33 +323,55 @@ void loop()
         }
         break;
 
-      case BOTH_DXL_UP:        
+      case LEFT_DXL_DOWN:
+        if (diff(LEFT_DXL) < DIFF_OFFSET)
+        {
+          stop(LEFT_DXL, TIME_OUT);
+          musicStop();
+          
+          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
+          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
+          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
+          state = ALL_DXL_UP;          
+        }
+        else
+        {
+          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
+          musicStart();
+        }
+        break;
+
+      case ALL_DXL_UP:        
         if (diff(FRONT_DXL) < DIFF_OFFSET)
         {
           stop(ROOM_DXL, 0);
           stop(FRONT_DXL, 0);
+          stop(LEFT_DXL, 0);
           musicStop();
           
           updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
           updateDesiredPosition(ROOM_DXL, DOWN, ONE_ROTATION);
+          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
           
           delay(TIME_OUT);
           
-          state = BOTH_DXL_DOWN;
+          state = ALL_DXL_DOWN;
         }
         else
         {
           move(FRONT_DXL, UP, MOTOR_SPEED);
           move(ROOM_DXL, UP, MOTOR_SPEED);
+          move(LEFT_DXL, UP, MOTOR_SPEED);
           musicStart();
         }
         break;
 
-      case BOTH_DXL_DOWN:
+      case ALL_DXL_DOWN:
         if (diff(FRONT_DXL) < DIFF_OFFSET)
         {
           stop(ROOM_DXL, 0);
-          stop(FRONT_DXL, 0); 
+          stop(FRONT_DXL, 0);
+          stop(LEFT_DXL, 0); 
           musicStop();
           
           updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
@@ -326,6 +382,7 @@ void loop()
         {
           move(ROOM_DXL, DOWN, MOTOR_SPEED/2);
           move(FRONT_DXL, DOWN, MOTOR_SPEED/2);
+          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
           musicStart();
         }
         break;
