@@ -41,7 +41,7 @@ const uint8_t moving_speed_handler = 1;
 void setup() 
 {
   Serial.begin(57600);
-  while(!Serial); // Wait for Opening Serial Monitor
+//  while(!Serial); // Wait for Opening Serial Monitor
 
   pinMode(analogInPin, INPUT_ANALOG);
 
@@ -63,7 +63,7 @@ void setup()
     Serial.println(BAUDRATE);  
   }
 
-  for (int cnt = 1; cnt <= DXL_CNT; cnt++)
+  for (int cnt = 0; cnt <= DXL_CNT; cnt++)
   {
     result = dxl_wb.ping(dxl_id[cnt], &model_number, &log);
     if (result == false)
@@ -141,7 +141,7 @@ void move(uint32_t move_time, int32_t a, int32_t b)
 {
   set_position(a, b);
 
-  for (int id = 1; id <= DXL_CNT; id++)
+  for (int id = 0; id <= DXL_CNT; id++)
   {
     dxl_wb.goalPosition(id, goal_position[0]);
   }
@@ -153,7 +153,7 @@ void speed(int32_t a, int32_t b)
 {
   set_speed(a, b);
   
-  for (int id = 1; id <= DXL_CNT; id++)
+  for (int id = 0; id <= DXL_CNT; id++)
   {
     dxl_wb.goalVelocity(id, moving_speed[0]);
   }
