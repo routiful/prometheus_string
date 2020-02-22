@@ -38,6 +38,9 @@ int32_t moving_speed[2] = {512, 512};
 const uint8_t goal_position_handler = 0;
 const uint8_t moving_speed_handler = 1;
 
+#define DOWN 512
+#define UP 0
+
 void setup() 
 {
   Serial.begin(57600);
@@ -91,6 +94,50 @@ void setup()
       Serial.println("Succeed to change joint mode");
     }
   } 
+
+  randomSeed(analogRead(1));
+}
+
+void fast()
+{
+  speed(1023);
+  move(1000, DOWN);
+
+  speed(1023);
+  move(1000, UP);
+}
+
+void slow()
+{
+  speed(100);
+  move(3000, DOWN);
+
+  speed(100);
+  move(3000, UP);
+}
+
+void fast_slow()
+{
+  speed(1023);
+  move(1000, DOWN);
+
+  speed(100);
+  move(3000, UP);
+}
+
+void swing()
+{
+  for (int i = 0; i < 10; i++)
+  {
+    speed(1023);
+    move(1, DOWN);
+  
+    speed(1023);
+    move(1, UP);
+  }
+
+  speed(100);
+  move(3000, DOWN);
 }
 
 void loop() 
@@ -99,59 +146,57 @@ void loop()
 
   if (sonic_data < 1000)
   {
-    speed(1023, 1023);
-    move(1000, 512, 512);
-
-    speed(512, 512);
-    move(1000, 0, 0);
-
-    speed(1023, 1023);
-    move(1000, 512, 512);
-
-    speed(512, 512);
-    move(1000, 0, 0);
+    long rand_num = random(1000);
+    if (rand_num % 4 == 0)
+    {
+      fast();
+    }
+    else if (rand_num % 4 == 1)
+    {
+      slow();
+    }
+    else if (rand_num % 4 == 2)
+    {
+      fast_slow();
+    }
+    else if (rand_num % 4 == 3)
+    {
+      swing();
+    }
   }
 }
 
-void set_position(int32_t a, int32_t b)
+void set_position(int32_t a)
 {
   if (a > 512) a = 512;
   if (a < 0) a = 0;
   
-  if (b > 512) b = 512;
-  if (b < 0) b = 0;
-  
   goal_position[0] = a;
-  goal_position[1] = b;
 }
 
-void set_speed(int32_t a, int32_t b)
+void set_speed(int32_t a)
 {
   if (a > 1023) a = 1023;
   if (a < 0) a = 0;
   
-  if (b > 1023) b = 1023;
-  if (b < 0) b = 0;
-  
   moving_speed[0] = a;
-  moving_speed[1] = b;
 }
 
-void move(uint32_t move_time, int32_t a, int32_t b)
+void move(uint32_t move_time, int32_t a)
 {
-  set_position(a, b);
+  set_position(a);
 
   for (int id = 0; id <= DXL_CNT; id++)
   {
     dxl_wb.goalPosition(id, goal_position[0]);
   }
 
-  delay(move_time + 10);
+  delay(move_time);
 }
 
-void speed(int32_t a, int32_t b)
+void speed(int32_t a)
 {
-  set_speed(a, b);
+  set_speed(a);
   
   for (int id = 0; id <= DXL_CNT; id++)
   {
