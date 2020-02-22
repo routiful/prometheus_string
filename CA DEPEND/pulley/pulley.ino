@@ -21,8 +21,8 @@
 #define TRIG_PIN  13
 #define ECHO_PIN  12
 
-float dist = 0;
-float smooth_dist = 0;
+float ultra_dist = 0;
+float ultra_smooth_dist = 0;
 
 DynamixelShield dxl;
 
@@ -164,9 +164,9 @@ void dxlDebugMsg()
 
 void ultraDebugMsg()
 {
-  Serial.print(distance);
+  Serial.print(ultra_dist);
   Serial.print("cm  ");
-  Serial.print(smooth_dist);
+  Serial.print(ultra_smooth_dist);
   Serial.println("cm");
 }
 
@@ -212,12 +212,12 @@ void loop()
     switch(state)
     {
       case WAIT_FLAG:
-        dist = getDistance();
-        smooth_dist = averageFilter(distance);  
+        ultra_dist = getDistance();
+        ultra_smooth_dist = averageFilter(ultra_dist);  
   
 //        ultraDebugMsg()
 
-        if (smooth_dist) < 100.0)
+        if (ultra_smooth_dist < 100.0)
         {
           state = FRONT_DXL_UP;
         }
