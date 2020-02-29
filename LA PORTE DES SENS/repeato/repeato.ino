@@ -19,9 +19,11 @@ const uint8_t DXL_ID[DXL_CNT] = {11, 12, 13, 14};
 uint32_t dxl_present_position_[DXL_CNT];
 uint32_t dxl_goal_position_[DXL_CNT];
 
+const float CONTROL_PERIOD = 3.0; //sec
+
 void timer_init()
 {
-  uint32_t ms = 8;
+  uint32_t ms = CONTROL_PERIOD * 1000;
   MsTimer2::set(ms, run);
   MsTimer2::start();
 }
@@ -33,7 +35,7 @@ void setup()
   dxl.begin(DXL_BAUDRATE);
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
-  for (int id = DXL_ID[0]; id < DXL_CNT; id++)
+  for (int id = DXL_ID[0]; id <= DXL_ID[DXL_CNT-1]; id++)
   {
     dxl.ping(id);
     dxl.torqueOff(id);
@@ -41,6 +43,7 @@ void setup()
     dxl.torqueOn(id);
   }
 
+  pinMode(LED_BUILTIN, OUTPUT);
   timer_init();
 }
 
@@ -48,7 +51,7 @@ void move(uint32_t * goal_pos, float move_time)
 {
   const float acc_time = 0.3, decel_time = 0.3;
 
-  for (int id = DXL_ID[0], num = 0; id < DXL_CNT; id++, num++)
+  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
     dxl_present_position_[num] = dxl.getPresentPosition(id);
   }
@@ -57,50 +60,117 @@ void move(uint32_t * goal_pos, float move_time)
 
 void motion()
 {
-  dxl_goal_position_[0] = 2048;
-  dxl_goal_position_[1] = 2048;
-  dxl_goal_position_[2] = 2048;
-  dxl_goal_position_[3] = 2048;
-  move(dxl_goal_position_, 1.0);
+    static boolean output = HIGH;
 
-  dxl_goal_position_[0] = 0;
-  dxl_goal_position_[1] = 0;
-  dxl_goal_position_[2] = 0;
-  dxl_goal_position_[3] = 0;
-  move(dxl_goal_position_, 2.0);
+  digitalWrite(LED_BUILTIN, output);
+  output = !output;
+  
+//  dxl_goal_position_[0] = 2048;
+//  dxl_goal_position_[1] = 2048;
+//  dxl_goal_position_[2] = 2048;
+//  dxl_goal_position_[3] = 2048;
+//  move(dxl_goal_position_, 1.0);
+
+//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+//  {
+//    dxl.ledOn(id);
+//  }
+
+//  delay(3000);
+//  dxl_goal_position_[0] = 0;
+//  dxl_goal_position_[1] = 0;
+//  dxl_goal_position_[2] = 0;
+//  dxl_goal_position_[3] = 0;
+//  move(dxl_goal_position_, 2.0);
+
+//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+//  {
+//    dxl.ledOff(id);
+//  }
+//  delay(3000);
 }
 
-void dxl_position_controller(uint32_t * pre_pos, uint32_t * goal_pos, float acc_time, float decel_time, float move_time)
+void dxl_position_controller(uint32_t * pre_pos, uint32_t * goal_pos, float acc_time, float dec_time, float total_time)
 {
   // trapezoidal_time_profile
-  for (int id = DXL_ID[0], num = 0; id < DXL_CNT; id++, num++)
+
+  float acceleration[DXL_CNT];
+  float deceleration[DXL_CNT];
+  float max_velocity[DXL_CNT];
+  
+  float accel_time[DXL_CNT];
+  float const_time[DXL_CNT];
+  float decel_time[DXL_CNT];
+  
+  float const_start_time[DXL_CNT];
+  float decel_start_time[DXL_CNT];
+
+  float velocity[DXL_CNT];
+  float position[DXL_CNT];
+  
+  float move_time[DXL_CNT];
+  uint32_t move_cnt = 0;
+  
+  for (int num = 0; num < DXL_CNT; num++)
   {
 //    lookso_jr_dxl_present_rad_[id] = LooksoJrJoint.convertValue2Radian(pre_pos[id]);
 //    lookso_jr_dxl_goal_rad_[id]   = goal_pos[id]*DEGREE2RADIAN;
-//    move_time_[id]  = fabs(total_time);
-//
-//    if ((fabs(acc_time) + fabs(decel_time)) <= move_time_[id])
-//    {
-//      accel_time_[id] = fabs(acc_time);
-//      decel_time_[id] = fabs(decel_time);
-//      const_time_[id] = move_time_[id] - accel_time_[id] - decel_time_[id];
-//    }
-//    else
-//    {
-//      float time_gain = move_time_[id] / (fabs(acc_time) + fabs(decel_time));
-//      accel_time_[id] = time_gain*fabs(acc_time);
-//      decel_time_[id] = time_gain*fabs(decel_time);
-//      const_time_[id] = 0;
-//    }
-//
-//    const_start_time_[id] = accel_time_[id];
-//    decel_start_time_[id] = accel_time_[id] + const_time_[id];
-//
-//    float pos_diff = lookso_jr_dxl_goal_rad_[id] - lookso_jr_dxl_present_rad_[id];
-//    max_velocity_[id] = 2*pos_diff / (move_time_[id] + const_time_[id]);
-//    acceleration_[id] = max_velocity_[id] / accel_time_[id];
-//    deceleration_[id] = -max_velocity_[id] / decel_time_[id];
-//  }
+    move_time[num]  = fabs(total_time);
+
+    if ((fabs(acc_time) + fabs(dec_time)) <= move_time[num])
+    {
+      accel_time[num] = fabs(acc_time);
+      decel_time[num] = fabs(dec_time);
+      const_time[num] = move_time[num] - accel_time[num] - decel_time[num];
+    }
+    else
+    {
+      float time_gain = move_time[num] / (fabs(acc_time) + fabs(dec_time));
+      accel_time[num] = time_gain*fabs(acc_time);
+      decel_time[num] = time_gain*fabs(dec_time);
+      const_time[num] = 0;
+    }
+
+    const_start_time[num] = accel_time[num];
+    decel_start_time[num] = accel_time[num] + const_time[num];
+
+    uint32_t pos_diff = goal_pos[num] - pre_pos[num];
+    max_velocity[num] = 2 * pos_diff / (move_time[num] + const_time[num]);
+    acceleration[num] = max_velocity[num] / accel_time[num];
+    deceleration[num] = -max_velocity[num] / decel_time[num];
+  }
+
+  for (int num = 0; num < DXL_CNT; num++)
+  {
+    if (move_cnt * CONTROL_PERIOD < const_start_time[num])
+    {
+      velocity[num] = velocity[num] + (acceleration[num] * CONTROL_PERIOD);
+      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
+//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+    }
+    else if ((move_cnt * CONTROL_PERIOD >= const_start_time[num]) && (move_cnt * CONTROL_PERIOD < decel_start_time[num]))
+    {
+      velocity[num] = max_velocity[num];
+      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
+//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+    }
+    else if (move_cnt * CONTROL_PERIOD <= move_time[num])
+    {
+      velocity[num] = velocity[num] + (deceleration[num] * CONTROL_PERIOD);
+      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
+//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+    }
+    else
+    {
+      break;
+    }
+    move_cnt++;
+  }  
+  
+  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+  {
+    dxl.setGoalPosition(id, position[num]);
+  }
 }
 
 void loop() {}
@@ -125,7 +195,7 @@ void run()
     
     if (cmd[0] == "g")
     {
-      for (int id = DXL_ID[0], num = 0; id < DXL_CNT; id++, num++)
+      for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
       {
         motion_[page][num] = dxl.getPresentPosition(id);
         Serial.print(dxl_present_position[num]);
