@@ -1,5 +1,5 @@
 /* Authors: Darby Lim */
-#include <MsTimer2.h>
+
 #include <DynamixelShield.h>
 DynamixelShield dxl;
 
@@ -19,19 +19,12 @@ const uint8_t DXL_ID[DXL_CNT] = {11, 12, 13, 14};
 uint32_t dxl_present_position_[DXL_CNT];
 uint32_t dxl_goal_position_[DXL_CNT];
 
-const float CONTROL_PERIOD = 3.0; //sec
-
-void timer_init()
-{
-  uint32_t ms = CONTROL_PERIOD * 1000;
-  MsTimer2::set(ms, run);
-  MsTimer2::start();
-}
+const float CONTROL_PERIOD = 0.008; //sec
 
 void setup() 
 {
-  Serial.begin(9600);
-  
+  DEBUG_SERIAL.begin(9600);
+
   dxl.begin(DXL_BAUDRATE);
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
@@ -42,9 +35,6 @@ void setup()
     dxl.setOperatingMode(id, OP_POSITION);
     dxl.torqueOn(id);
   }
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  timer_init();
 }
 
 void move(uint32_t * goal_pos, float move_time)
@@ -59,35 +49,18 @@ void move(uint32_t * goal_pos, float move_time)
 }
 
 void motion()
-{
-    static boolean output = HIGH;
+{ 
+  dxl_goal_position_[0] = 2048;
+  dxl_goal_position_[1] = 2048;
+  dxl_goal_position_[2] = 2048;
+  dxl_goal_position_[3] = 2048;
+  move(dxl_goal_position_, 1.0);
 
-  digitalWrite(LED_BUILTIN, output);
-  output = !output;
-  
-//  dxl_goal_position_[0] = 2048;
-//  dxl_goal_position_[1] = 2048;
-//  dxl_goal_position_[2] = 2048;
-//  dxl_goal_position_[3] = 2048;
-//  move(dxl_goal_position_, 1.0);
-
-//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
-//  {
-//    dxl.ledOn(id);
-//  }
-
-//  delay(3000);
-//  dxl_goal_position_[0] = 0;
-//  dxl_goal_position_[1] = 0;
-//  dxl_goal_position_[2] = 0;
-//  dxl_goal_position_[3] = 0;
-//  move(dxl_goal_position_, 2.0);
-
-//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
-//  {
-//    dxl.ledOff(id);
-//  }
-//  delay(3000);
+  dxl_goal_position_[0] = 0;
+  dxl_goal_position_[1] = 0;
+  dxl_goal_position_[2] = 0;
+  dxl_goal_position_[3] = 0;
+  move(dxl_goal_position_, 2.0);
 }
 
 void dxl_position_controller(uint32_t * pre_pos, uint32_t * goal_pos, float acc_time, float dec_time, float total_time)
@@ -173,8 +146,7 @@ void dxl_position_controller(uint32_t * pre_pos, uint32_t * goal_pos, float acc_
   }
 }
 
-void loop() {}
-void run()
+void loop()
 {
 #ifdef GET_MOTION
   const uint8_t STRING_BUF_NUM = 10
@@ -185,10 +157,10 @@ void run()
   static uint32_t motion_[PAGE][DXL_CNT + MOVE_TIME];
   static uint8_t page = 0;
   
-  if (Serial.available() > 0)
+  if (DEBUG_SERIAL.available() > 0)
   {
-    String str = Serial.readStringUntil('\n');
-//    Serial.println("[CMD] : " + String(str));
+    String str = DEBUG_SERIAL.readStringUntil('\n');
+//    DEBUG_SERIAL.println("[CMD] : " + String(str));
 
     str.trim();
     split(str, ' ', cmd);
@@ -198,13 +170,13 @@ void run()
       for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
       {
         motion_[page][num] = dxl.getPresentPosition(id);
-        Serial.print(dxl_present_position[num]);
-        Serial.print(" | ");
+        DEBUG_SERIAL.print(dxl_present_position[num]);
+        DEBUG_SERIAL.print(" | ");
       }
       motion_[page][MOVE_TIME - 1] = cmd[1];
       
-      Serial.print("| ");
-      Serial.println(cmd[1]);
+      DEBUG_SERIAL.print("| ");
+      DEBUG_SERIAL.println(cmd[1]);
       
       page++;
     }
@@ -214,21 +186,26 @@ void run()
       {
         for (int cnt = 0; id < DXL_CNT; cnt++)
         {
-          Serial.print("dxl_goal_position_[");
-          Serial.print(cnt);
-          Serial.print("] = ");
-          Serial.print(motion_[num][cnt]);
-          Serial.print(";");
+          DEBUG_SERIAL.print("dxl_goal_position_[");
+          DEBUG_SERIAL.print(cnt);
+          DEBUG_SERIAL.print("] = ");
+          DEBUG_SERIAL.print(motion_[num][cnt]);
+          DEBUG_SERIAL.print(";");
         }
-        Serial.println("");
-        Serial.println("move(dxl_goal_position_, 1.0);");
+        DEBUG_SERIAL.println("");
+        DEBUG_SERIAL.println("move(dxl_goal_position_, 1.0);");
       }
     }
   }
 #endif
 
 #ifdef PLAY_MOTION
-  motion();
+  static uint32_t t = millis();
+  if ((t-millis()) >= CONTROL_PERIOD * 1000)
+  {
+    motion();
+    t = millis();
+  }
 #endif
 }
 
