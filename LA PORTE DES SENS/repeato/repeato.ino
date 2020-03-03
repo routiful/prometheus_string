@@ -10,20 +10,21 @@ SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
 // #define GET_MOTION
  #define PLAY_MOTION
 
-const uint32_t DXL_BAUDRATE = 1000000;
+const int32_t DXL_BAUDRATE = 1000000;
 const float DXL_PROTOCOL_VERSION = 2.0;
 
 const uint8_t DXL_CNT = 4;
 const uint8_t DXL_ID[DXL_CNT] = {11, 12, 13, 14};
 
-uint32_t dxl_present_position_[DXL_CNT];
-uint32_t dxl_goal_position_[DXL_CNT];
+int32_t dxl_present_position_[DXL_CNT];
+int32_t dxl_goal_position_[DXL_CNT];
 
-const float CONTROL_PERIOD = 0.008; //sec
+const int32_t CONTROL_PERIOD = 50; // ms
 
 void setup() 
 {
   DEBUG_SERIAL.begin(9600);
+  while(!DEBUG_SERIAL);
 
   dxl.begin(DXL_BAUDRATE);
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
@@ -37,15 +38,15 @@ void setup()
   }
 }
 
-void move(uint32_t * goal_pos, float move_time)
+void move(int32_t * goal_pos, int32_t move_time)
 {
-  const float acc_time = 0.3, decel_time = 0.3;
+  const float acc_time = 300, decel_time = 300; // ms
 
   for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
     dxl_present_position_[num] = dxl.getPresentPosition(id);
   }
-  dxl_position_controller(dxl_present_position_, goal_pos, acc_time, decel_time, move_time);
+  dxl_position_controller(&dxl_present_position_[0], goal_pos, acc_time, decel_time, move_time);
 }
 
 void motion()
@@ -54,96 +55,101 @@ void motion()
   dxl_goal_position_[1] = 2048;
   dxl_goal_position_[2] = 2048;
   dxl_goal_position_[3] = 2048;
-  move(dxl_goal_position_, 1.0);
+
+  move(&dxl_goal_position_[0], 1000);
 
   dxl_goal_position_[0] = 0;
   dxl_goal_position_[1] = 0;
   dxl_goal_position_[2] = 0;
   dxl_goal_position_[3] = 0;
-  move(dxl_goal_position_, 2.0);
+  move(&dxl_goal_position_[0], 2000);
 }
 
-void dxl_position_controller(uint32_t * pre_pos, uint32_t * goal_pos, float acc_time, float dec_time, float total_time)
+void dxl_position_controller(int32_t * pre_pos, int32_t * goal_pos, int32_t acc_time, int32_t dec_time, int32_t total_time)
 {
   // trapezoidal_time_profile
+  static int32_t acceleration[DXL_CNT];
+  static int32_t deceleration[DXL_CNT];
+  static int32_t max_velocity[DXL_CNT];
+  
+  int32_t accel_time[DXL_CNT];
+  int32_t const_time[DXL_CNT];
+  int32_t decel_time[DXL_CNT];
+  
+  static int32_t const_start_time[DXL_CNT];
+  static int32_t decel_start_time[DXL_CNT];
 
-  float acceleration[DXL_CNT];
-  float deceleration[DXL_CNT];
-  float max_velocity[DXL_CNT];
+  int32_t velocity[DXL_CNT];
+  int32_t position[DXL_CNT];
   
-  float accel_time[DXL_CNT];
-  float const_time[DXL_CNT];
-  float decel_time[DXL_CNT];
-  
-  float const_start_time[DXL_CNT];
-  float decel_start_time[DXL_CNT];
-
-  float velocity[DXL_CNT];
-  float position[DXL_CNT];
-  
-  float move_time[DXL_CNT];
-  uint32_t move_cnt = 0;
+  int32_t move_time[DXL_CNT];
+  static int32_t move_cnt = 0;
   
   for (int num = 0; num < DXL_CNT; num++)
   {
-//    lookso_jr_dxl_present_rad_[id] = LooksoJrJoint.convertValue2Radian(pre_pos[id]);
-//    lookso_jr_dxl_goal_rad_[id]   = goal_pos[id]*DEGREE2RADIAN;
-    move_time[num]  = fabs(total_time);
+    move_time[num]  = abs(total_time);
 
-    if ((fabs(acc_time) + fabs(dec_time)) <= move_time[num])
+    if ((abs(acc_time) + abs(dec_time)) <= move_time[num])
     {
-      accel_time[num] = fabs(acc_time);
-      decel_time[num] = fabs(dec_time);
-      const_time[num] = move_time[num] - accel_time[num] - decel_time[num];
+      accel_time[num] = abs(acc_time);
+      decel_time[num] = abs(dec_time);
+      const_time[num] = move_time[num] - (accel_time[num] + decel_time[num]);
     }
     else
     {
-      float time_gain = move_time[num] / (fabs(acc_time) + fabs(dec_time));
-      accel_time[num] = time_gain*fabs(acc_time);
-      decel_time[num] = time_gain*fabs(dec_time);
+      float time_gain = move_time[num] / (abs(acc_time) + abs(dec_time));
+      accel_time[num] = time_gain*abs(acc_time);
+      decel_time[num] = time_gain*abs(dec_time);
       const_time[num] = 0;
     }
 
     const_start_time[num] = accel_time[num];
     decel_start_time[num] = accel_time[num] + const_time[num];
 
-    uint32_t pos_diff = goal_pos[num] - pre_pos[num];
-    max_velocity[num] = 2 * pos_diff / (move_time[num] + const_time[num]);
+    int32_t pos_diff = goal_pos[num] - pre_pos[num];
+    DEBUG_SERIAL.print("pos "); DEBUG_SERIAL.print(goal_pos[num]);
+    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pre_pos[num]);
+    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pos_diff);
+    DEBUG_SERIAL.println(" ");
+    max_velocity[num] = (2 * pos_diff) / (move_time[num] + const_time[num]);
     acceleration[num] = max_velocity[num] / accel_time[num];
     deceleration[num] = -max_velocity[num] / decel_time[num];
+
+    DEBUG_SERIAL.print("tra "); DEBUG_SERIAL.print(max_velocity[num]);
+    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(acceleration[num]);
+    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(deceleration[num]);
+    DEBUG_SERIAL.println(" ");
   }
 
-  for (int num = 0; num < DXL_CNT; num++)
+  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
     if (move_cnt * CONTROL_PERIOD < const_start_time[num])
     {
       velocity[num] = velocity[num] + (acceleration[num] * CONTROL_PERIOD);
-      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
-//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
     }
     else if ((move_cnt * CONTROL_PERIOD >= const_start_time[num]) && (move_cnt * CONTROL_PERIOD < decel_start_time[num]))
     {
       velocity[num] = max_velocity[num];
-      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
-//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
     }
     else if (move_cnt * CONTROL_PERIOD <= move_time[num])
     {
       velocity[num] = velocity[num] + (deceleration[num] * CONTROL_PERIOD);
-      position[num] = position[num] + (velocity[num] * CONTROL_PERIOD);
-//      lookso_jr_dxl_present_pos_[num] = LooksoJrJoint.convertRadian2Value(lookso_jr_dxl_present_rad_[num]);
+      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
     }
     else
     {
+      move_cnt = 0;
       break;
     }
     move_cnt++;
-  }  
-  
-  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
-  {
+
+    DEBUG_SERIAL.print("ret "); DEBUG_SERIAL.print(velocity[num]);
+    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(position[num]);
+    DEBUG_SERIAL.println("----------");
     dxl.setGoalPosition(id, position[num]);
-  }
+  }  
 }
 
 void loop()
@@ -201,7 +207,7 @@ void loop()
 
 #ifdef PLAY_MOTION
   static uint32_t t = millis();
-  if ((t-millis()) >= CONTROL_PERIOD * 1000)
+  if ((t-millis()) >= CONTROL_PERIOD)
   {
     motion();
     t = millis();
