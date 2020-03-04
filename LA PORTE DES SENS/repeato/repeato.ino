@@ -11,19 +11,25 @@ SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
  #define PLAY_MOTION
 
 const int32_t DXL_BAUDRATE = 1000000;
-const float DXL_PROTOCOL_VERSION = 2.0;
+const float DXL_PROTOCOL_VERSION = 1.0;
 
-const uint8_t DXL_CNT = 4;
-const uint8_t DXL_ID[DXL_CNT] = {11, 12, 13, 14};
+const uint8_t DXL_CNT = 2;
+const uint8_t DXL_ID[DXL_CNT] = {1, 2};
 
-int32_t dxl_present_position_[DXL_CNT];
-int32_t dxl_goal_position_[DXL_CNT];
+const uint8_t PAGE = 2;
+const uint8_t MOVE_TIME_CNT = 1;
+const uint8_t DELAY_TIME_CNT = 1;
+const float motion_[PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {
+  // deg ... move_time(sec), delay_time(sec)
+  {0.0, 0.0, 2.0, 1.0},
+  {150.0, 295.0, 2.0, 1.0}
+};
 
-const int32_t CONTROL_PERIOD = 50; // ms
+const float CONTROL_PERIOD = 0.050; // sec
 
 void setup() 
 {
-  DEBUG_SERIAL.begin(9600);
+  DEBUG_SERIAL.begin(57600);
   while(!DEBUG_SERIAL);
 
   dxl.begin(DXL_BAUDRATE);
@@ -38,119 +44,194 @@ void setup()
   }
 }
 
-void move(int32_t * goal_pos, int32_t move_time)
+void move()
 {
-  const float acc_time = 300, decel_time = 300; // ms
+  const float DEGPERSEC_TO_RPM = 0.17f;
+  const float DXL_AX12_RPM_UNIT = 0.111f;
+  const uint8_t MOVE_TIME = DXL_CNT + MOVE_TIME_CNT - 1;
+  const uint8_t DELAY_TIME = DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT - 1;
+  
+  static uint8_t page_cnt = 0;
+  
+  float diff_deg;
+  float deg_per_sec;
+  float rpm_per_sec;
 
-  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+  for (uint8_t id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
-    dxl_present_position_[num] = dxl.getPresentPosition(id);
+    if (dxl.readControlTableItem(MOVING, id) == 1)
+    {
+      return;
+    }
   }
-  dxl_position_controller(&dxl_present_position_[0], goal_pos, acc_time, decel_time, move_time);
-}
-
-void motion()
-{ 
-  dxl_goal_position_[0] = 2048;
-  dxl_goal_position_[1] = 2048;
-  dxl_goal_position_[2] = 2048;
-  dxl_goal_position_[3] = 2048;
-
-  move(&dxl_goal_position_[0], 1000);
-
-  dxl_goal_position_[0] = 0;
-  dxl_goal_position_[1] = 0;
-  dxl_goal_position_[2] = 0;
-  dxl_goal_position_[3] = 0;
-  move(&dxl_goal_position_[0], 2000);
-}
-
-void dxl_position_controller(int32_t * pre_pos, int32_t * goal_pos, int32_t acc_time, int32_t dec_time, int32_t total_time)
-{
-  // trapezoidal_time_profile
-  static int32_t acceleration[DXL_CNT];
-  static int32_t deceleration[DXL_CNT];
-  static int32_t max_velocity[DXL_CNT];
   
-  int32_t accel_time[DXL_CNT];
-  int32_t const_time[DXL_CNT];
-  int32_t decel_time[DXL_CNT];
-  
-  static int32_t const_start_time[DXL_CNT];
-  static int32_t decel_start_time[DXL_CNT];
-
-  int32_t velocity[DXL_CNT];
-  int32_t position[DXL_CNT];
-  
-  int32_t move_time[DXL_CNT];
-  static int32_t move_cnt = 0;
-  
-  for (int num = 0; num < DXL_CNT; num++)
+  for (uint8_t id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
-    move_time[num]  = abs(total_time);
+    diff_deg = dxl.getPresentPosition(id, UNIT_DEGREE) - motion_[page_cnt][num];
+    deg_per_sec = fabs(diff_deg) / motion_[page_cnt][MOVE_TIME];
+    rpm_per_sec = deg_per_sec * DEGPERSEC_TO_RPM / DXL_AX12_RPM_UNIT;
 
-    if ((abs(acc_time) + abs(dec_time)) <= move_time[num])
-    {
-      accel_time[num] = abs(acc_time);
-      decel_time[num] = abs(dec_time);
-      const_time[num] = move_time[num] - (accel_time[num] + decel_time[num]);
-    }
-    else
-    {
-      float time_gain = move_time[num] / (abs(acc_time) + abs(dec_time));
-      accel_time[num] = time_gain*abs(acc_time);
-      decel_time[num] = time_gain*abs(dec_time);
-      const_time[num] = 0;
-    }
-
-    const_start_time[num] = accel_time[num];
-    decel_start_time[num] = accel_time[num] + const_time[num];
-
-    int32_t pos_diff = goal_pos[num] - pre_pos[num];
-    DEBUG_SERIAL.print("pos "); DEBUG_SERIAL.print(goal_pos[num]);
-    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pre_pos[num]);
-    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pos_diff);
-    DEBUG_SERIAL.println(" ");
-    max_velocity[num] = (2 * pos_diff) / (move_time[num] + const_time[num]);
-    acceleration[num] = max_velocity[num] / accel_time[num];
-    deceleration[num] = -max_velocity[num] / decel_time[num];
-
-    DEBUG_SERIAL.print("tra "); DEBUG_SERIAL.print(max_velocity[num]);
-    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(acceleration[num]);
-    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(deceleration[num]);
-    DEBUG_SERIAL.println(" ");
+//    DEBUG_SERIAL.print("id "); DEBUG_SERIAL.print(id);
+//    DEBUG_SERIAL.print(" pos "); DEBUG_SERIAL.print(fabs(diff_deg));
+//    DEBUG_SERIAL.print(" deg_per_sec "); DEBUG_SERIAL.print(deg_per_sec);
+//    DEBUG_SERIAL.print(" rpm_per_sec "); DEBUG_SERIAL.print(rpm_per_sec);
+//    DEBUG_SERIAL.print(" page_cnt "); DEBUG_SERIAL.print(page_cnt);
+    
+    dxl.writeControlTableItem(MOVING_SPEED, id, (uint32_t)rpm_per_sec);
+    dxl.setGoalPosition(id, motion_[page_cnt][num], UNIT_DEGREE);
   }
-
-  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+  page_cnt++;
+  if (page_cnt >= PAGE)
   {
-    if (move_cnt * CONTROL_PERIOD < const_start_time[num])
-    {
-      velocity[num] = velocity[num] + (acceleration[num] * CONTROL_PERIOD);
-      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
-    }
-    else if ((move_cnt * CONTROL_PERIOD >= const_start_time[num]) && (move_cnt * CONTROL_PERIOD < decel_start_time[num]))
-    {
-      velocity[num] = max_velocity[num];
-      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
-    }
-    else if (move_cnt * CONTROL_PERIOD <= move_time[num])
-    {
-      velocity[num] = velocity[num] + (deceleration[num] * CONTROL_PERIOD);
-      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
-    }
-    else
-    {
-      move_cnt = 0;
-      break;
-    }
-    move_cnt++;
-
-    DEBUG_SERIAL.print("ret "); DEBUG_SERIAL.print(velocity[num]);
-    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(position[num]);
-    DEBUG_SERIAL.println("----------");
-    dxl.setGoalPosition(id, position[num]);
-  }  
+    page_cnt = 0;
+  }
+  
+  
+//  init_trapezoidal_profile();
+//  dxl_position_controller();
 }
+
+//void init_trapezoidal_profile(int32_t acc_time = 300, int32_t dec_time == 300)
+//{
+//  int32_t dxl_present_position[DXL_CNT];
+//  
+//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+//  {
+//    dxl_present_position[num] = dxl.getPresentPosition(id);
+//  }
+//  
+//  for (int num = 0; num < DXL_CNT; num++)
+//  {
+//    move_time[num]  = abs(total_time);
+//
+//    if ((abs(acc_time) + abs(dec_time)) <= move_time[num])
+//    {
+//      accel_time[num] = abs(acc_time);
+//      decel_time[num] = abs(dec_time);
+//      const_time[num] = move_time[num] - (accel_time[num] + decel_time[num]);
+//    }
+//    else
+//    {
+//      float time_gain = move_time[num] / (abs(acc_time) + abs(dec_time));
+//      accel_time[num] = time_gain*abs(acc_time);
+//      decel_time[num] = time_gain*abs(dec_time);
+//      const_time[num] = 0;
+//    }
+//
+//    const_start_time[num] = accel_time[num];
+//    decel_start_time[num] = accel_time[num] + const_time[num];
+//
+//    int32_t pos_diff = goal_pos[num] - pre_pos[num];
+//    DEBUG_SERIAL.print("pos "); DEBUG_SERIAL.print(goal_pos[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pre_pos[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pos_diff);
+//    DEBUG_SERIAL.println(" ");
+//    max_velocity[num] = (2 * pos_diff) / (move_time[num] + const_time[num]);
+//    acceleration[num] = max_velocity[num] / accel_time[num];
+//    deceleration[num] = -max_velocity[num] / decel_time[num];
+//
+//    DEBUG_SERIAL.print("tra "); DEBUG_SERIAL.print(max_velocity[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(acceleration[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(deceleration[num]);
+//    DEBUG_SERIAL.println(" ");
+//  }
+//}
+//
+//void dxl_position_controller(int32_t total_time)
+//{
+//  // trapezoidal_time_profile
+//  static int32_t acceleration[DXL_CNT];
+//  static int32_t deceleration[DXL_CNT];
+//  static int32_t max_velocity[DXL_CNT];
+//  
+//  int32_t accel_time[DXL_CNT];
+//  int32_t const_time[DXL_CNT];
+//  int32_t decel_time[DXL_CNT];
+//  
+//  static int32_t const_start_time[DXL_CNT];
+//  static int32_t decel_start_time[DXL_CNT];
+//
+//  int32_t velocity[DXL_CNT];
+//  int32_t position[DXL_CNT];
+//  
+//  int32_t move_time[DXL_CNT];
+//  static int32_t move_cnt = 0;
+//
+//  int32_t dxl_present_position[DXL_CNT];
+//
+//  const float acc_time = 300, decel_time = 300; // ms
+//
+//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+//  {
+//    dxl_present_position[num] = dxl.getPresentPosition(id);
+//  }
+//  
+//  for (int num = 0; num < DXL_CNT; num++)
+//  {
+//    move_time[num]  = abs(total_time);
+//
+//    if ((abs(acc_time) + abs(dec_time)) <= move_time[num])
+//    {
+//      accel_time[num] = abs(acc_time);
+//      decel_time[num] = abs(dec_time);
+//      const_time[num] = move_time[num] - (accel_time[num] + decel_time[num]);
+//    }
+//    else
+//    {
+//      float time_gain = move_time[num] / (abs(acc_time) + abs(dec_time));
+//      accel_time[num] = time_gain*abs(acc_time);
+//      decel_time[num] = time_gain*abs(dec_time);
+//      const_time[num] = 0;
+//    }
+//
+//    const_start_time[num] = accel_time[num];
+//    decel_start_time[num] = accel_time[num] + const_time[num];
+//
+//    int32_t pos_diff = goal_pos[num] - pre_pos[num];
+//    DEBUG_SERIAL.print("pos "); DEBUG_SERIAL.print(goal_pos[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pre_pos[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(pos_diff);
+//    DEBUG_SERIAL.println(" ");
+//    max_velocity[num] = (2 * pos_diff) / (move_time[num] + const_time[num]);
+//    acceleration[num] = max_velocity[num] / accel_time[num];
+//    deceleration[num] = -max_velocity[num] / decel_time[num];
+//
+//    DEBUG_SERIAL.print("tra "); DEBUG_SERIAL.print(max_velocity[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(acceleration[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(deceleration[num]);
+//    DEBUG_SERIAL.println(" ");
+//  }
+//
+//  for (int id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
+//  {
+//    if (move_cnt * CONTROL_PERIOD < const_start_time[num])
+//    {
+//      velocity[num] = velocity[num] + (acceleration[num] * CONTROL_PERIOD);
+//      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
+//    }
+//    else if ((move_cnt * CONTROL_PERIOD >= const_start_time[num]) && (move_cnt * CONTROL_PERIOD < decel_start_time[num]))
+//    {
+//      velocity[num] = max_velocity[num];
+//      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
+//    }
+//    else if (move_cnt * CONTROL_PERIOD <= move_time[num])
+//    {
+//      velocity[num] = velocity[num] + (deceleration[num] * CONTROL_PERIOD);
+//      position[num] = pre_pos[num] + (velocity[num] * CONTROL_PERIOD);
+//    }
+//    else
+//    {
+//      move_cnt = 0;
+//      break;
+//    }
+//    move_cnt++;
+//
+//    DEBUG_SERIAL.print("ret "); DEBUG_SERIAL.print(velocity[num]);
+//    DEBUG_SERIAL.print(" "); DEBUG_SERIAL.print(position[num]);
+//    DEBUG_SERIAL.println("----------");
+//    dxl.setGoalPosition(id, position[num]);
+//  }  
+//}
 
 void loop()
 {
@@ -207,9 +288,9 @@ void loop()
 
 #ifdef PLAY_MOTION
   static uint32_t t = millis();
-  if ((t-millis()) >= CONTROL_PERIOD)
+  if ((t-millis()) >= (CONTROL_PERIOD * 1000))
   {
-    motion();
+    move();
     t = millis();
   }
 #endif
