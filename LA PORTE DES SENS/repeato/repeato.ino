@@ -174,7 +174,7 @@ void setup()
   }
 
   rgb_led.init(9, 10, 11);
-  ultrasonic.init(11, 12);
+  ultrasonic.init(12, 13);
   
   DEBUG_SERIAL.println("Ready to Start");
 }
