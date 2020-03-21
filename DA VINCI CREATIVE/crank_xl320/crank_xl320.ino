@@ -25,7 +25,8 @@
 #endif   
 
 #define BAUDRATE  1000000
-#define DXL_CNT 10
+#define DXL_ID_1  1
+#define DXL_ID_2  3
 
 const int analogInPin = 0;
 int sonic_data;
@@ -38,9 +39,6 @@ int32_t moving_speed[2] = {512, 512};
 const uint8_t goal_position_handler = 0;
 const uint8_t moving_speed_handler = 1;
 
-#define DOWN 512
-#define UP 0
-
 void setup() 
 {
   Serial.begin(57600);
@@ -52,7 +50,7 @@ void setup()
   bool result = false;
 
   uint16_t model_number = 0;
-  uint8_t dxl_id[DXL_CNT] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  uint8_t dxl_id[2] = {DXL_ID_1, DXL_ID_2};
 
   result = dxl_wb.init(DEVICE_NAME, BAUDRATE, &log);
   if (result == false)
@@ -66,7 +64,7 @@ void setup()
     Serial.println(BAUDRATE);  
   }
 
-  for (int cnt = 0; cnt <= DXL_CNT; cnt++)
+  for (int cnt = 0; cnt < 2; cnt++)
   {
     result = dxl_wb.ping(dxl_id[cnt], &model_number, &log);
     if (result == false)
@@ -95,49 +93,19 @@ void setup()
     }
   } 
 
-  randomSeed(analogRead(1));
-}
-
-void fast()
-{
-  speed(1023);
-  move(1000, DOWN);
-
-  speed(1023);
-  move(1000, UP);
-}
-
-void slow()
-{
-  speed(100);
-  move(3000, DOWN);
-
-  speed(100);
-  move(3000, UP);
-}
-
-void fast_slow()
-{
-  speed(1023);
-  move(1000, DOWN);
-
-  speed(100);
-  move(3000, UP);
-}
-
-void swing()
-{
-  for (int i = 0; i < 10; i++)
+  result = dxl_wb.addSyncWriteHandler(dxl_id[0], "Goal_Position", &log);
+  if (result == false)
   {
-    speed(1023);
-    move(1, DOWN);
-  
-    speed(1023);
-    move(1, UP);
+    Serial.println(log);
+    Serial.println("Failed to add sync write handler");
   }
 
-  speed(100);
-  move(3000, DOWN);
+  result = dxl_wb.addSyncWriteHandler(dxl_id[0], "Moving_Speed", &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to add sync write handler");
+  }
 }
 
 void loop() 
@@ -146,60 +114,72 @@ void loop()
 
   if (sonic_data < 1000)
   {
-    long rand_num = random(1000);
-    if (rand_num % 4 == 0)
-    {
-      fast();
-    }
-    else if (rand_num % 4 == 1)
-    {
-      slow();
-    }
-    else if (rand_num % 4 == 2)
-    {
-      fast_slow();
-    }
-    else if (rand_num % 4 == 3)
-    {
-      swing();
-    }
+    speed(1023, 1023);
+    move(1000, 512, 512);
+
+    speed(512, 512);
+    move(1000, 0, 0);
+
+    speed(1023, 1023);
+    move(1000, 512, 512);
+
+    speed(512, 512);
+    move(1000, 0, 0);
   }
 }
 
-void set_position(int32_t a)
+void set_position(int32_t a, int32_t b)
 {
   if (a > 512) a = 512;
   if (a < 0) a = 0;
   
+  if (b > 512) b = 512;
+  if (b < 0) b = 0;
+  
   goal_position[0] = a;
+  goal_position[1] = b;
 }
 
-void set_speed(int32_t a)
+void set_speed(int32_t a, int32_t b)
 {
   if (a > 1023) a = 1023;
   if (a < 0) a = 0;
   
+  if (b > 1023) b = 1023;
+  if (b < 0) b = 0;
+  
   moving_speed[0] = a;
+  moving_speed[1] = b;
 }
 
-void move(uint32_t move_time, int32_t a)
+void move(uint32_t move_time, int32_t a, int32_t b)
 {
-  set_position(a);
-
-  for (int id = 0; id <= DXL_CNT; id++)
+  set_position(a, b);
+  
+  const char *log;
+  bool result = false;
+  
+  result = dxl_wb.syncWrite(goal_position_handler, &goal_position[0], &log);
+  if (result == false)
   {
-    dxl_wb.goalPosition(id, goal_position[0]);
+    Serial.println(log);
+    Serial.println("Failed to sync write position");
   }
 
-  delay(move_time);
+  delay(move_time + 10);
 }
 
-void speed(int32_t a)
+void speed(int32_t a, int32_t b)
 {
-  set_speed(a);
+  set_speed(a, b);
   
-  for (int id = 0; id <= DXL_CNT; id++)
+  const char *log;
+  bool result = false;
+  
+  result = dxl_wb.syncWrite(moving_speed_handler, &moving_speed[0], &log);
+  if (result == false)
   {
-    dxl_wb.goalVelocity(id, moving_speed[0]);
+    Serial.println(log);
+    Serial.println("Failed to sync moving speed");
   }
 }
