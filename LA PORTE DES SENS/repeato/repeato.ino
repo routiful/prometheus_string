@@ -13,8 +13,8 @@ DynamixelShield dxl;
   #define DEBUG_SERIAL Serial
 #endif
 
-// #define GET_MOTION
- #define PLAY_MOTION
+ #define GET_MOTION
+// #define PLAY_MOTION
 
 const int32_t DXL_BAUDRATE = 1000000;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -157,7 +157,7 @@ RGBLED rgb_led;
 void setup() 
 {
   DEBUG_SERIAL.begin(57600);
-  while(!DEBUG_SERIAL);
+//  while(!DEBUG_SERIAL);
 
   dxl.begin(DXL_BAUDRATE);
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
@@ -274,14 +274,17 @@ void get_motion()
   
   if (DEBUG_SERIAL.available() > 0)
   {
-    String str = DEBUG_SERIAL.readStringUntil('\n');
+    String read_string = DEBUG_SERIAL.readStringUntil('\n');
+    read_string.trim();
+    split(read_string, ' ', cmd);
 
-    if (str == "h" || str == "help" || str == "?")
+    if (cmd[0] == "h" || cmd[0] == "help" || cmd[0] == "?")
     {
       DEBUG_SERIAL.println("Press 'g' to save positions of Dynamixels");
+      DEBUG_SERIAL.println("Press 'd' to delete last positions of Dynamixels");
       DEBUG_SERIAL.println("Press 'e' to get a code that has a motion array");
     }
-    else if (str == "g")
+    else if (cmd[0] == "g")
     {
       DEBUG_SERIAL.print("Page ");
       DEBUG_SERIAL.print(page);
@@ -292,14 +295,22 @@ void get_motion()
         DEBUG_SERIAL.print(" | ");
         DEBUG_SERIAL.print(motion[page][num]);
       }
+      motion[page][DXL_CNT + MOVE_TIME_CNT - 1] = cmd[1].toFloat();
+      motion[page][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT - 1] = cmd[2].toFloat();
+      
+      DEBUG_SERIAL.print(" move_time ");
+      DEBUG_SERIAL.print(motion[page][DXL_CNT + MOVE_TIME_CNT - 1]);
+      DEBUG_SERIAL.print(" delay_time  ");
+      DEBUG_SERIAL.print(motion[page][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT - 1]);
+        
       page++;
       DEBUG_SERIAL.print("\n");
     }
-    else if (str == "d")
+    else if (cmd[0] == "d")
     {
       page--;
     }
-    else if (str == "e" || page >= 250)
+    else if (cmd[0] == "e" || page >= 250)
     { 
       DEBUG_SERIAL.print("const uint8_t PAGE = ");
       DEBUG_SERIAL.print(page);
@@ -316,7 +327,12 @@ void get_motion()
           DEBUG_SERIAL.print(motion[num][cnt]);
           DEBUG_SERIAL.print(", ");
         }
-        DEBUG_SERIAL.print("1.0, 0.0}");
+        DEBUG_SERIAL.print(motion[num][DXL_CNT + MOVE_TIME_CNT - 1]);
+        DEBUG_SERIAL.print(", ");
+        DEBUG_SERIAL.print(motion[num][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT - 1]);
+        DEBUG_SERIAL.print("}");
+        
+//        DEBUG_SERIAL.print("1.0, 0.0}");
         if ((num + 1) != page)
         {
           DEBUG_SERIAL.println(",");
