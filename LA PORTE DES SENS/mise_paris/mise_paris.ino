@@ -16,9 +16,10 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRBW + NEO_
 //String sido = "서울"; // 서울, 부산, 대구, 인천, 광주, 대전, 울산, 경기, 강원, 충북, 충남, 전북, 전남, 경북, 경남, 제주, 세종 중 입력
 //String key = "TXb7Lz0%2FjL91wRXXEvNRe5OIyQkWO3wEC%2BgNcAdFMFegX%2Fhlj3pjm9%2BHrHI1ph8v9KZ1f7nLwp3waGxkKj01Yw%3D%3D";
 //String url = "http://openapi.airkorea.or.kr/openapi/services/rest/ArpltnInforInqireSvc/getCtprvnMesureSidoLIst?sidoName=" + sido + "&searchCondition=HOUR&pageNo=1&numOfRows=200&ServiceKey=" + key;
-String url = "http://www.airparif.asso.fr/services/api/1.1/indiceJour?date=jourhttp://www.airparif.asso.fr/services/api/1.1/indiceJour?date=jour"
+Stirng url = "http://www.airparif.asso.fr/services/api/1.1/indiceJour?date=jour"
 
-float so2, co, o3, no2, pm10, pm25 = 0; // 대기오염정보 데이터값
+//float so2, co, o3, no2, pm10, pm25 = 0; // 대기오염정보 데이터값
+float no2, o3, pm10 = 0.0; // 대기오염정보 데이터값
 int score = 0; // 대기오염점수 0-최고 7-최악
 
 void setup()
@@ -65,8 +66,7 @@ void loop() {
       // httpCode 가 음수라면 에러
       if (httpCode > 0) { // 에러가 없는 경우
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
-          String payload = "{\"date\":\"04\03\2020","global":{"indice":41,"url_carte":"http:\/\/www.airparif.asso.fr\/services\/cartes\/indice\/date\/jour"},"no2":{"indice":41,"url_carte":"http:\/\/www.airparif.asso.fr\/services\/cartes\/indice\/date\/jour\/pol\/NO2"},"o3":{"indice":30,"url_carte":"http:\/\/www.airparif.asso.fr\/services\/cartes\/indice\/date\/jour\/pol\/O3"},"pm10":{"indice":32,"url_carte":"http:\/\/www.airparif.asso.fr\/services\/cartes\/indice\/date\/jour\/pol\/PM10"}}
-          //http.getString(); // 받은 XML 데이터를 String에 저장
+          String payload = http.getString(); // 받은 XML 데이터를 String에 저장
           int cityIndex = payload.indexOf("용산구");
 //          so2 = getNumber(payload, "<so2Value>", cityIndex);
 //          co = getNumber(payload, "<coValue>", cityIndex);
