@@ -9,24 +9,21 @@
 #include <ESP8266WiFi.h> // ESP 8266 와이파이 라이브러리
 #include <ESP8266HTTPClient.h> // HTTP 클라이언트
 #include <Adafruit_NeoPixel.h> // 네오픽셀 라이브러리
-#define NUMPIXELS      100 // 네오픽셀 LED 수
-#define LED_PIN        D4 // 네오픽셀 입력 핀
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRBW + NEO_KHZ800); // 네오픽셀 객체
+#define NUMPIXELS      30 // 네오픽셀 LED 수
+#define LED_PIN        D2 // 네오픽셀 입력 핀
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800); // 네오픽셀 객체
 
-//String sido = "서울"; // 서울, 부산, 대구, 인천, 광주, 대전, 울산, 경기, 강원, 충북, 충남, 전북, 전남, 경북, 경남, 제주, 세종 중 입력
-//String key = "TXb7Lz0%2FjL91wRXXEvNRe5OIyQkWO3wEC%2BgNcAdFMFegX%2Fhlj3pjm9%2BHrHI1ph8v9KZ1f7nLwp3waGxkKj01Yw%3D%3D";
-//String url = "http://openapi.airkorea.or.kr/openapi/services/rest/ArpltnInforInqireSvc/getCtprvnMesureSidoLIst?sidoName=" + sido + "&searchCondition=HOUR&pageNo=1&numOfRows=200&ServiceKey=" + key;
-Stirng url = "http://www.airparif.asso.fr/services/api/1.1/indiceJour?date=jour"
+String url = "http://www.airparif.asso.fr/services/api/1.1/indiceJour?date=jour";
+//http://www.airparif.asso.fr/en/stations/index
 
-//float so2, co, o3, no2, pm10, pm25 = 0; // 대기오염정보 데이터값
-float no2, o3, pm10 = 0.0; // 대기오염정보 데이터값
+int no2, o3, pm10 = 0; // 대기오염정보 데이터값
 int score = 0; // 대기오염점수 0-최고 7-최악
 
 void setup()
 {
   // 시리얼 세팅
   Serial.begin(9600);
-//  while(!Serial);
+  while(!Serial);
 
   // 네오픽셀 초기화
   pixels.begin();
@@ -36,10 +33,8 @@ void setup()
   pixels.show();
 //  pixels.setBrightness(50);
 
-
   // 와이파이 접속
-//  WiFi.begin("amado", "amadoart"); // 공유기 이름과 비밀번호
-  WiFi.begin("TP-LINK_F22616", "25487725"); // 공유기 이름과 비밀번호
+  WiFi.begin("AtelierVU", "vunet0401"); // 공유기 이름과 비밀번호
 
   Serial.print("Connecting");
   while (WiFi.status() != WL_CONNECTED) // 와이파이 접속하는 동안 "." 출력
@@ -67,13 +62,10 @@ void loop() {
       if (httpCode > 0) { // 에러가 없는 경우
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
           String payload = http.getString(); // 받은 XML 데이터를 String에 저장
-          int cityIndex = payload.indexOf("용산구");
-//          so2 = getNumber(payload, "<so2Value>", cityIndex);
-//          co = getNumber(payload, "<coValue>", cityIndex);
-          o3 = getNumber(payload, "<o3Value>", cityIndex);
-          no2 = getNumber(payload, "<no2Value>", cityIndex);
-          pm10 = getNumber(payload, "<pm10Value>", cityIndex);
-//          pm25 = getNumber(payload, "<pm25Value>", cityIndex);
+          Serial.printf("%s\n", payload.c_str());
+          o3 = getNumber(payload, "o3", 14);
+          no2 = getNumber(payload, "no2", 15);
+          pm10 = getNumber(payload, "pm10", 16);
         }
       } else {
         Serial.printf("[HTTP] GET... Failed. Connection Failed: %s\n", http.errorToString(httpCode).c_str());
@@ -89,31 +81,29 @@ void loop() {
   }
 }
 
-float getNumber(String str, String tag, int from) {
-  int f = str.indexOf(tag, from) + tag.length(); // 테그의 위치와 테그의 문자 길이의 합
-  int t = str.indexOf("<", f); // 다음 테스시작위치
-  String s = str.substring(f, t); // 테그 사이의 숫자를 문자열에 저장
-  return s.toFloat(); // 문자를 소수로 변환 후 반환
+int getNumber(String str, String tag, int offset) {
+  int f = str.indexOf(tag) + offset;
+  int t = str.indexOf(",", f); // 다음 테그시작위치
+  String num = str.substring(f, t); // 테그 사이의 숫자를 문자열에 저장
+  Serial.printf("%s\n", num.c_str());
+  return num.toInt(); // 문자를 정수로 변환 후 반환
 }
 
 int getScore() {
-  int s = -1;
-  if (pm10 >= 151 || pm25 >= 76 || o3 >= 0.38 || no2 >= 1.1 || co >= 32 || so2 > 0.6) // 최악
+  int s = (pm10 + o3 + no2) / 3;
+  if (s >= 100)
     s = 7;
-  else if (pm10 >= 101 || pm25 >= 51 || o3 >= 0.15 || no2 >= 0.2 || co >= 15 || so2 > 0.15) // 매우 나쁨
+  else if (s >= 75 && s < 100)
     s = 6;
-  else if (pm10 >= 76 || pm25 >= 38 || o3 >= 0.12 || no2 >= 0.13 || co >= 12 || so2 > 0.1) // 상당히 나쁨
+  else if (s >= 50 && s < 75)
     s = 5;
-  else if (pm10 >= 51 || pm25 >= 26 || o3 >= 0.09 || no2 >= 0.06 || co >= 9 || so2 > 0.05) // 나쁨
-    s = 4;
-  else if (pm10 >= 41 || pm25 >= 21 || o3 >= 0.06 || no2 >= 0.05 || co >= 5.5 || so2 > 0.04) // 보통
+  else if (s >= 25 && s < 50)
     s = 3;
-  else if (pm10 >= 31 || pm25 >= 16 || o3 >= 0.03 || no2 >= 0.03 || co >= 2 || so2 > 0.02) // 양호
-    s = 2;
-  else if (pm10 >= 16 || pm25 >= 9 || o3 >= 0.02 || no2 >= 0.02 || co >= 1 || so2 > 0.01) // 좋음
+  else if (s > 0 && s < 25)
     s = 1;
-  else // 최고
+  else 
     s = 0;
+    
   return s;
 }
 
