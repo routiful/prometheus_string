@@ -23,7 +23,7 @@ void setup()
 {
   // 시리얼 세팅
   Serial.begin(9600);
-  while(!Serial);
+//  while(!Serial);
 
   // 네오픽셀 초기화
   pixels.begin();
