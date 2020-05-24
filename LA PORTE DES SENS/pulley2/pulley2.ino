@@ -1,9 +1,19 @@
 #include <DynamixelShield.h>
 #include <SoftwareSerial.h>
 
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
+  #include <SoftwareSerial.h>
+  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
+  #define DEBUG_SERIAL soft_serial
+#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
+  #define DEBUG_SERIAL SerialUSB    
+#else
+  #define DEBUG_SERIAL Serial
+#endif
+
 #define FRONT_DXL 1
 #define LEFT_DXL  2
-#define ROOM_DXL  4
+#define ROOM_DXL  3
 
 #define UP  -1 // CW
 #define DOWN 1 // CCW
@@ -26,6 +36,7 @@ float ultra_dist = 0;
 float ultra_smooth_dist = 0;
 
 DynamixelShield dxl;
+const float DXL_PROTOCOL_VERSION = 2.0;
 
 SoftwareSerial music_Serial(10, 11);
 
@@ -48,31 +59,31 @@ int32_t front_dxl_des_pos = 0;
 int32_t room_dxl_des_pos = 0;
 int32_t left_dxl_des_pos = 0;
 
-void setInitAngle(uint8_t id, int32_t angle)
-{
-  dxl.torqueOff(id);
-  dxl.setJointMode(id);
-  dxl.torqueOn(id);
-  dxl.setGoalAngle(id, angle);
+//void setInitAngle(uint8_t id, int32_t angle)
+//{
+//  dxl.torqueOff(id);
+//  dxl.setJointMode(id);
+//  dxl.torqueOn(id);
+//  dxl.setGoalAngle(id, angle);
+//
+//  delay(1000);
+//}
 
-  delay(1000);
-}
-
-void updateDesiredPosition(uint8_t which_dxl, int32_t dir, int32_t offset)
-{
-  if (which_dxl == FRONT_DXL)
-  {
-    front_dxl_des_pos = front_dxl_des_pos + (dir * offset);
-  }
-  else if (which_dxl == ROOM_DXL)
-  {
-    room_dxl_des_pos = room_dxl_des_pos + (dir * offset);
-  }
-  else if (which_dxl == LEFT_DXL)
-  {
-    left_dxl_des_pos = left_dxl_des_pos + (dir * offset);
-  }
-}
+//void updateDesiredPosition(uint8_t which_dxl, int32_t dir, int32_t offset)
+//{
+//  if (which_dxl == FRONT_DXL)
+//  {
+//    front_dxl_des_pos = front_dxl_des_pos + (dir * offset);
+//  }
+//  else if (which_dxl == ROOM_DXL)
+//  {
+//    room_dxl_des_pos = room_dxl_des_pos + (dir * offset);
+//  }
+//  else if (which_dxl == LEFT_DXL)
+//  {
+//    left_dxl_des_pos = left_dxl_des_pos + (dir * offset);
+//  }
+//}
 
 void stop(uint8_t id, int32_t timeout = 0)
 {
@@ -81,28 +92,34 @@ void stop(uint8_t id, int32_t timeout = 0)
   delay(timeout);
 }             
 
-void move(uint8_t id, int32_t dir, int32_t speed)
+void move(uint8_t id, int32_t dir, float speed)
 {
-  dxl.setGoalSpeed(id, dir * speed);
+//  dxl.setGoalSpeed(id, dir * speed);
+  DEBUG_SERIAL.println("move cmd");
+  float goal = speed;
+  int t = 4000; //msec
+  dxl.writeControlTableItem(PROFILE_ACCELERATION, id, 0);
+  dxl.writeControlTableItem(PROFILE_VELOCITY, id, t);
+  dxl.setGoalPosition(id, dir * goal);
 }
 
-int32_t diff(uint8_t which_dxl)
-{
-  if (which_dxl == FRONT_DXL)
-  {
-    return abs(dxl.getCurPosition(FRONT_DXL) - front_dxl_des_pos);
-  }
-  else if (which_dxl == ROOM_DXL)
-  {
-    return abs(dxl.getCurPosition(ROOM_DXL) - room_dxl_des_pos);
-  }
-  else if (which_dxl == LEFT_DXL)
-  {
-    return abs(dxl.getCurPosition(LEFT_DXL) - left_dxl_des_pos);
-  }
-
-  return 0;
-}
+//int32_t diff(uint8_t which_dxl)
+//{
+//  if (which_dxl == FRONT_DXL)
+//  {
+//    return abs(dxl.getCurPosition(FRONT_DXL) - front_dxl_des_pos);
+//  }
+//  else if (which_dxl == ROOM_DXL)
+//  {
+//    return abs(dxl.getCurPosition(ROOM_DXL) - room_dxl_des_pos);
+//  }
+//  else if (which_dxl == LEFT_DXL)
+//  {
+//    return abs(dxl.getCurPosition(LEFT_DXL) - left_dxl_des_pos);
+//  }
+//
+//  return 0;
+//}
 
 void musicStart()
 {
@@ -188,34 +205,50 @@ void ultraDebugMsg()
 
 void setup() 
 {
-  Serial.begin(9600);
-  music_Serial.begin(9600);
-//  while(!Serial);
+  DEBUG_SERIAL.begin(9600);
+//  music_Serial.begin(9600);
+//  while(!DEBUG_SERIAL);
 
   // 다이나믹셀
-  dxl.begin(1000000, DXL_PACKET_VER_2_0);
-  delay(1000);
+  dxl.begin(1000000);
+  dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+  dxl.ping(FRONT_DXL);
+  dxl.ping(ROOM_DXL);
+  dxl.ping(LEFT_DXL);
   
-  dxl.ping();
+//  dxl.torqueOff(DXL_ALL_ID);
+//  dxl.setWheelMode(FRONT_DXL);
+//  dxl.setWheelMode(ROOM_DXL);
+//  dxl.setWheelMode(LEFT_DXL);
+//  dxl.torqueOn(DXL_ALL_ID);
+  dxl.torqueOff(FRONT_DXL);
+  dxl.torqueOff(ROOM_DXL);
+  dxl.torqueOff(LEFT_DXL);
   
-  dxl.torqueOff(DXL_ALL_ID);
-  dxl.setWheelMode(FRONT_DXL);
-  dxl.setWheelMode(ROOM_DXL);
-  dxl.setWheelMode(LEFT_DXL);
-  dxl.torqueOn(DXL_ALL_ID);     
-
-  int32_t profile_acc = PRIFILE_ACC;
+  dxl.writeControlTableItem(OPERATING_MODE, FRONT_DXL, 4);
+//  dxl.writeControlTableItem(HOMING_OFFSET, FRONT_DXL, 2048);
   
-  dxl.write(FRONT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
-  dxl.write(ROOM_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
-  dxl.write(LEFT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
+  dxl.torqueOn(FRONT_DXL);
+  dxl.torqueOn(ROOM_DXL);
+  dxl.torqueOn(LEFT_DXL);
+ 
+//  int32_t profile_acc = PRIFILE_ACC;
+//  
+//  dxl.write(FRONT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
+//  dxl.write(ROOM_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
+//  dxl.write(LEFT_DXL, 108, (uint8_t *)&profile_acc, 4, 100);
 //bool DynamixelShield::write(uint8_t id, uint16_t addr, uint8_t *p_data, uint16_t length, uint32_t timeout)
 
-  front_dxl_des_pos = dxl.getCurPosition(FRONT_DXL);
-  room_dxl_des_pos = dxl.getCurPosition(ROOM_DXL);
-  left_dxl_des_pos = dxl.getCurPosition(LEFT_DXL);
+//  front_dxl_des_pos = dxl.getCurPosition(FRONT_DXL);
+//  room_dxl_des_pos = dxl.getCurPosition(ROOM_DXL);
+//  left_dxl_des_pos = dxl.getCurPosition(LEFT_DXL);
+//
+//  updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
 
-  updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
+//  move(FRONT_DXL, UP, 0);
+//  move(ROOM_DXL, UP, 0);
+//  move(LEFT_DXL, UP, 0);
+//  delay(5000);
 
   // 초음파 센서 
   pinMode(TRIG_PIN, OUTPUT);
@@ -224,168 +257,200 @@ void setup()
 
 void loop() 
 {   
-  if (dxl.getDxlCount() > 0)
-  {
-//    dxlDebugMsg();
+  static uint32_t tick = millis();
+  if ((millis()-tick) >= 100)
+  { 
+    static int check = 0;
+    DEBUG_SERIAL.print("moving: ");
+    DEBUG_SERIAL.print(dxl.getPresentPosition(FRONT_DXL));
+    DEBUG_SERIAL.print(" ");
+    DEBUG_SERIAL.print(dxl.getPresentPosition(ROOM_DXL));
+    DEBUG_SERIAL.print(" ");
+    DEBUG_SERIAL.println(dxl.getPresentPosition(LEFT_DXL));
     
-    switch(state)
+    if (dxl.readControlTableItem(MOVING, FRONT_DXL) == false &&
+        dxl.readControlTableItem(MOVING, ROOM_DXL) == false &&
+        dxl.readControlTableItem(MOVING, LEFT_DXL) == false)
     {
-      case WAIT_FLAG:
-        ultra_dist = getDistance();
-        ultra_smooth_dist = averageFilter(ultra_dist);  
-  
-//        ultraDebugMsg()
-
-        if (ultra_smooth_dist < 100.0)
-        {
-          state = FRONT_DXL_UP;
-        }
-       break;
-       
-      case FRONT_DXL_UP:
-        if (diff(FRONT_DXL) < DIFF_OFFSET)
-        {
-          musicStop();
-          stop(FRONT_DXL, TIME_OUT);
-          
-          
-          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
-          state = ROOM_DXL_UP;          
-        }
-        else
-        {
-          move(FRONT_DXL, UP, MOTOR_SPEED);
-          musicStart();
-        }
-        break;
-
-      case ROOM_DXL_UP:
-        if (diff(ROOM_DXL) < DIFF_OFFSET)
-        {
-          stop(ROOM_DXL, TIME_OUT);
-          musicStop();
-          
-          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
-          state = LEFT_DXL_UP;          
-        }
-        else
-        {
-          move(ROOM_DXL, UP, MOTOR_SPEED);
-          musicStart();
-        }
-        break;
-
-      case LEFT_DXL_UP:
-        if (diff(LEFT_DXL) < DIFF_OFFSET)
-        {
-          stop(LEFT_DXL, TIME_OUT);
-          musicStop();
-          
-          updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
-          state = FRONT_DXL_DOWN;          
-        }
-        else
-        {
-          move(LEFT_DXL, UP, MOTOR_SPEED);
-          musicStart();
-        }
-        break;
-        
-      case FRONT_DXL_DOWN:
-        if (diff(FRONT_DXL) < DIFF_OFFSET)
-        {
-          stop(FRONT_DXL, TIME_OUT);
-          musicStop();
-          
-          updateDesiredPosition(ROOM_DXL, DOWN, ONE_ROTATION);
-          state = ROOM_DXL_DOWN;          
-        }
-        else
-        {
-          move(FRONT_DXL, DOWN, MOTOR_SPEED/2);
-          musicStart();
-        }
-        break;
-
-      case ROOM_DXL_DOWN:
-        if (diff(ROOM_DXL) < DIFF_OFFSET)
-        {
-          stop(ROOM_DXL, TIME_OUT);
-          musicStop();
-          
-          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
-          state = LEFT_DXL_DOWN;          
-        }
-        else
-        {
-          move(ROOM_DXL, DOWN, MOTOR_SPEED/2);
-          musicStart();
-        }
-        break;
-
-      case LEFT_DXL_DOWN:
-        if (diff(LEFT_DXL) < DIFF_OFFSET)
-        {
-          stop(LEFT_DXL, TIME_OUT);
-          musicStop();
-          
-          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
-          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
-          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
-          state = ALL_DXL_UP;          
-        }
-        else
-        {
-          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
-          musicStart();
-        }
-        break;
-
-      case ALL_DXL_UP:        
-        if (diff(FRONT_DXL) < DIFF_OFFSET)
-        {
-          stop(ROOM_DXL, 0);
-          stop(FRONT_DXL, 0);
-          stop(LEFT_DXL, 0);
-          musicStop();
-          
-          updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
-          updateDesiredPosition(ROOM_DXL, DOWN, ONE_ROTATION);
-          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
-          
-          delay(TIME_OUT);
-          
-          state = ALL_DXL_DOWN;
-        }
-        else
-        {
-          move(FRONT_DXL, UP, MOTOR_SPEED);
-          move(ROOM_DXL, UP, MOTOR_SPEED);
-          move(LEFT_DXL, UP, MOTOR_SPEED);
-          musicStart();
-        }
-        break;
-
-      case ALL_DXL_DOWN:
-        if (diff(FRONT_DXL) < DIFF_OFFSET)
-        {
-          stop(ROOM_DXL, 0);
-          stop(FRONT_DXL, 0);
-          stop(LEFT_DXL, 0); 
-          musicStop();
-          
-          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
-          delay(TIME_OUT);
-          state = WAIT_FLAG;
-        }
-        else
-        {
-          move(ROOM_DXL, DOWN, MOTOR_SPEED/2);
-          move(FRONT_DXL, DOWN, MOTOR_SPEED/2);
-          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
-          musicStart();
-        }
-        break;
+      if (check%2)
+      {
+        move(FRONT_DXL, UP, 2048.0);
+        move(ROOM_DXL, UP, 2048.0);
+        move(LEFT_DXL, UP, 2048.0);
+      }
+      else
+      {
+        move(FRONT_DXL, DOWN, 2048.0);
+        move(ROOM_DXL, DOWN, 2048.0);
+        move(LEFT_DXL, DOWN, 2048.0);
+      }
+      check++;
     }
+    tick = millis();
   }
+    
+//  if (dxl.getDxlCount() > 0)
+//  {
+////    dxlDebugMsg();
+//    
+//    switch(state)
+//    {
+//      case WAIT_FLAG:
+//        ultra_dist = getDistance();
+//        ultra_smooth_dist = averageFilter(ultra_dist);  
+//  
+////        ultraDebugMsg()
+//
+//        if (ultra_smooth_dist < 100.0)
+//        {
+//          state = FRONT_DXL_UP;
+//        }
+//       break;
+//       
+//      case FRONT_DXL_UP:
+//        if (diff(FRONT_DXL) < DIFF_OFFSET)
+//        {
+//          musicStop();
+//          stop(FRONT_DXL, TIME_OUT);
+//          
+//          
+//          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
+//          state = ROOM_DXL_UP;          
+//        }
+//        else
+//        {
+//          move(FRONT_DXL, UP, MOTOR_SPEED);
+//          musicStart();
+//        }
+//        break;
+//
+//      case ROOM_DXL_UP:
+//        if (diff(ROOM_DXL) < DIFF_OFFSET)
+//        {
+//          stop(ROOM_DXL, TIME_OUT);
+//          musicStop();
+//          
+//          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
+//          state = LEFT_DXL_UP;          
+//        }
+//        else
+//        {
+//          move(ROOM_DXL, UP, MOTOR_SPEED);
+//          musicStart();
+//        }
+//        break;
+//
+//      case LEFT_DXL_UP:
+//        if (diff(LEFT_DXL) < DIFF_OFFSET)
+//        {
+//          stop(LEFT_DXL, TIME_OUT);
+//          musicStop();
+//          
+//          updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
+//          state = FRONT_DXL_DOWN;          
+//        }
+//        else
+//        {
+//          move(LEFT_DXL, UP, MOTOR_SPEED);
+//          musicStart();
+//        }
+//        break;
+//        
+//      case FRONT_DXL_DOWN:
+//        if (diff(FRONT_DXL) < DIFF_OFFSET)
+//        {
+//          stop(FRONT_DXL, TIME_OUT);
+//          musicStop();
+//          
+//          updateDesiredPosition(ROOM_DXL, DOWN, ONE_ROTATION);
+//          state = ROOM_DXL_DOWN;          
+//        }
+//        else
+//        {
+//          move(FRONT_DXL, DOWN, MOTOR_SPEED/2);
+//          musicStart();
+//        }
+//        break;
+//
+//      case ROOM_DXL_DOWN:
+//        if (diff(ROOM_DXL) < DIFF_OFFSET)
+//        {
+//          stop(ROOM_DXL, TIME_OUT);
+//          musicStop();
+//          
+//          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
+//          state = LEFT_DXL_DOWN;          
+//        }
+//        else
+//        {
+//          move(ROOM_DXL, DOWN, MOTOR_SPEED/2);
+//          musicStart();
+//        }
+//        break;
+//
+//      case LEFT_DXL_DOWN:
+//        if (diff(LEFT_DXL) < DIFF_OFFSET)
+//        {
+//          stop(LEFT_DXL, TIME_OUT);
+//          musicStop();
+//          
+//          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
+//          updateDesiredPosition(ROOM_DXL, UP, ONE_ROTATION);
+//          updateDesiredPosition(LEFT_DXL, UP, ONE_ROTATION);
+//          state = ALL_DXL_UP;          
+//        }
+//        else
+//        {
+//          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
+//          musicStart();
+//        }
+//        break;
+//
+//      case ALL_DXL_UP:        
+//        if (diff(FRONT_DXL) < DIFF_OFFSET)
+//        {
+//          stop(ROOM_DXL, 0);
+//          stop(FRONT_DXL, 0);
+//          stop(LEFT_DXL, 0);
+//          musicStop();
+//          
+//          updateDesiredPosition(FRONT_DXL, DOWN, ONE_ROTATION);
+//          updateDesiredPosition(ROOM_DXL, DOWN, ONE_ROTATION);
+//          updateDesiredPosition(LEFT_DXL, DOWN, ONE_ROTATION);
+//          
+//          delay(TIME_OUT);
+//          
+//          state = ALL_DXL_DOWN;
+//        }
+//        else
+//        {
+//          move(FRONT_DXL, UP, MOTOR_SPEED);
+//          move(ROOM_DXL, UP, MOTOR_SPEED);
+//          move(LEFT_DXL, UP, MOTOR_SPEED);
+//          musicStart();
+//        }
+//        break;
+//
+//      case ALL_DXL_DOWN:
+//        if (diff(FRONT_DXL) < DIFF_OFFSET)
+//        {
+//          stop(ROOM_DXL, 0);
+//          stop(FRONT_DXL, 0);
+//          stop(LEFT_DXL, 0); 
+//          musicStop();
+//          
+//          updateDesiredPosition(FRONT_DXL, UP, ONE_ROTATION);
+//          delay(TIME_OUT);
+//          state = WAIT_FLAG;
+//        }
+//        else
+//        {
+//          move(ROOM_DXL, DOWN, MOTOR_SPEED/2);
+//          move(FRONT_DXL, DOWN, MOTOR_SPEED/2);
+//          move(LEFT_DXL, DOWN, MOTOR_SPEED/2);
+//          musicStart();
+//        }
+//        break;
+//    }
+//  }
 }
