@@ -18,9 +18,9 @@
 #define UP  -1.0f // CW
 #define DOWN 1.0f // CCW
 
-#define ONE_ROTATION 4096.0f
-#define HALF_ROTATION 2048.0f
-#define ZERO_ROTATION 0.0f
+#define DXL_ONE_ROTATION 4096.0f
+#define DXL_HALF_ROTATION 2048.0f
+#define DXL_ZERO_ROTATION 0.0f
 
 // Ultrasoinc
 #define TRIG_PIN  13
@@ -190,15 +190,15 @@ void loop()
     {
       if (check%2)
       {
-        from_rotation(FRONT_DXL, UP, HALF_ROTATION, 4000);
-        from_rotation(ROOM_DXL, UP, HALF_ROTATION, 4000);
-        from_rotation(LEFT_DXL, UP, HALF_ROTATION, 4000);
+        from_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
+        from_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
+        from_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
       }
       else
       {
-        from_rotation(FRONT_DXL, DOWN, HALF_ROTATION, 4000);
-        from_rotation(ROOM_DXL, DOWN, HALF_ROTATION, 4000);
-        from_rotation(LEFT_DXL, DOWN, HALF_ROTATION, 4000);
+        from_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+        from_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+        from_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
       }
       check++;
     }
@@ -237,7 +237,7 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
 
   const float PULLEY_RADIUS = 0.050; // meter
   const float PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 0.314 meter
-  const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / ONE_ROTATION; // 0.00008
+  const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION; // 0.00008
   
   float present_height = dxl_shield.getPresentPosition(id) * HEIGHT_PER_ONE_DXL_UNIT;
   float dir = 0.0;
