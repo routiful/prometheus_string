@@ -1,31 +1,34 @@
 #include <DynamixelShield.h>
+#include <SoftwareSerial.h>
 
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
-  #include <SoftwareSerial.h>
-  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
-  #define DEBUG_SERIAL soft_serial
-#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
-  #define DEBUG_SERIAL SerialUSB    
-#else
-  #define DEBUG_SERIAL Serial
-#endif
+//#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
+//  #include <SoftwareSerial.h>
+//  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
+//  #define DEBUG_SERIAL soft_serial
+//#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
+//  #define DEBUG_SERIAL SerialUSB    
+//#else
+//  #define DEBUG_SERIAL Serial
+//#endif
 
 #define FRONT_DXL 1
 #define LEFT_DXL  2
 #define ROOM_DXL  3
 
-#define UP  -1 // CW
-#define DOWN 1 // CCW
+#define UP  -1.0f // CW
+#define DOWN 1.0f // CCW
 
-#define ONE_ROTATION 4096
-#define HALF_ROTATION 2048
+#define ONE_ROTATION 4096.0f
+#define HALF_ROTATION 2048.0f
+#define ZERO_ROTATION 0.0f
 
 // Ultrasoinc
 #define TRIG_PIN  13
 #define ECHO_PIN  12
 
-float ultra_dist = 0;
-float ultra_smooth_dist = 0;
+SoftwareSerial soft_serial(10, 11); // DYNAMIXELShield UART RX/TX
+#define BLUETOOTH soft_serial
+#define DEBUG_SERIAL Serial
 
 DynamixelShield dxl_shield;
 const float DXL_PROTOCOL_VERSION = 2.0;
@@ -119,6 +122,7 @@ Ultrasonic ultrasonic;
 void setup() 
 {
   DEBUG_SERIAL.begin(9600);
+  BLUETOOTH.begin(9600);
 //  while(!DEBUG_SERIAL);
 
   dxl_shield.begin(1000000);
@@ -158,7 +162,17 @@ void setup()
 
 void loop() 
 {
-#if 1
+ if (DEBUG_SERIAL.available())
+ {
+   BLUETOOTH.write(DEBUG_SERIAL.read());
+ }
+ 
+ if (BLUETOOTH.available())
+ {
+   DEBUG_SERIAL.write(BLUETOOTH.read());
+ }
+ 
+#if 0
   static uint32_t tick = millis();
   if ((millis()-tick) >= 100)
   { 
@@ -176,15 +190,15 @@ void loop()
     {
       if (check%2)
       {
-        move(FRONT_DXL, UP, 2048.0, 4000);
-        move(ROOM_DXL, UP, 2048.0, 4000);
-        move(LEFT_DXL, UP, 2048.0, 4000);
+        from_rotation(FRONT_DXL, UP, HALF_ROTATION, 4000);
+        from_rotation(ROOM_DXL, UP, HALF_ROTATION, 4000);
+        from_rotation(LEFT_DXL, UP, HALF_ROTATION, 4000);
       }
       else
       {
-        move(FRONT_DXL, DOWN, 2048.0, 4000);
-        move(ROOM_DXL, DOWN, 2048.0, 4000);
-        move(LEFT_DXL, DOWN, 2048.0, 4000);
+        from_rotation(FRONT_DXL, DOWN, HALF_ROTATION, 4000);
+        from_rotation(ROOM_DXL, DOWN, HALF_ROTATION, 4000);
+        from_rotation(LEFT_DXL, DOWN, HALF_ROTATION, 4000);
       }
       check++;
     }
@@ -193,9 +207,48 @@ void loop()
 #endif
 }
 
-void move(uint8_t id, int32_t dir, float goal, int32_t move_time)
+void set_profile(uint8_t id, int32_t move_time = 2000)
 {
   dxl_shield.writeControlTableItem(PROFILE_ACCELERATION, id, 0);
-  dxl_shield.writeControlTableItem(PROFILE_VELOCITY, id, move_time);
-  dxl_shield.setGoalPosition(id, dir * goal);
+  dxl_shield.writeControlTableItem(PROFILE_VELOCITY, id, move_time); 
+}
+
+void to_rotation(uint8_t id, float dir, float dxl_unit, int32_t move_time = 2000)
+{
+  set_profile(id, move_time);
+  dxl_shield.setGoalPosition(id, dir * dxl_unit);
+}
+
+void from_rotation(uint8_t id, float dir, float dxl_unit, int32_t move_time = 2000)
+{
+  set_profile(id, move_time);
+
+  static float goal_position = 0.0;
+  goal_position = dxl_shield.getPresentPosition(id) + (dir * dxl_unit);
+  dxl_shield.setGoalPosition(id, goal_position);
+}
+
+void move(uint8_t id, float goal_height, int32_t move_time = 2000)
+{
+  if (goal_height < 0.0) 
+  {
+    return;
+  }
+
+  const float PULLEY_RADIUS = 0.050; // meter
+  const float PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 0.314 meter
+  const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / ONE_ROTATION; // 0.00008
+  
+  float present_height = dxl_shield.getPresentPosition(id) * HEIGHT_PER_ONE_DXL_UNIT;
+  float dir = 0.0;
+  if (present_height <= goal_height) 
+  {
+    dir = UP;
+  }
+  else 
+  {
+    dir = DOWN;
+  }
+
+  to_rotation(id, dir, abs(present_height - goal_height) / HEIGHT_PER_ONE_DXL_UNIT, move_time);
 }
