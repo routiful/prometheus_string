@@ -160,53 +160,6 @@ void setup()
   ultrasonic.init(TRIG_PIN, ECHO_PIN);
 }
 
-void loop() 
-{
- if (DEBUG_SERIAL.available())
- {
-   BLUETOOTH.write(DEBUG_SERIAL.read());
- }
- 
- if (BLUETOOTH.available())
- {
-   DEBUG_SERIAL.write(BLUETOOTH.read());
- }
- 
-#if 0
-  static uint32_t tick = millis();
-  if ((millis()-tick) >= 100)
-  { 
-    static int check = 0;
-    DEBUG_SERIAL.print("moving: ");
-    DEBUG_SERIAL.print(dxl_shield.getPresentPosition(FRONT_DXL));
-    DEBUG_SERIAL.print(" ");
-    DEBUG_SERIAL.print(dxl_shield.getPresentPosition(ROOM_DXL));
-    DEBUG_SERIAL.print(" ");
-    DEBUG_SERIAL.println(dxl_shield.getPresentPosition(LEFT_DXL));
-    
-    if (dxl_shield.readControlTableItem(MOVING, FRONT_DXL) == false &&
-        dxl_shield.readControlTableItem(MOVING, ROOM_DXL) == false &&
-        dxl_shield.readControlTableItem(MOVING, LEFT_DXL) == false)
-    {
-      if (check%2)
-      {
-        from_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
-        from_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
-        from_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
-      }
-      else
-      {
-        from_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-        from_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-        from_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-      }
-      check++;
-    }
-    tick = millis();
-  }
-#endif
-}
-
 void set_profile(uint8_t id, int32_t move_time = 2000)
 {
   dxl_shield.writeControlTableItem(PROFILE_ACCELERATION, id, 0);
@@ -251,4 +204,49 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
   }
 
   to_rotation(id, dir, abs(present_height - goal_height) / HEIGHT_PER_ONE_DXL_UNIT, move_time);
+}
+
+void loop() 
+{
+  static uint32_t tick = millis();
+  if (Serial.available() > 0) 
+  {
+    if ((millis()-tick) >= 100)
+    { 
+      String read_string = Serial.readStringUntil('\n');
+      Serial.println(String(read_string));
+      int goal_height = read_string.toInt();
+      
+      move(FRONT_DXL, goal_height);
+#if 0
+      static int check = 0;
+      DEBUG_SERIAL.print("moving: ");
+      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(FRONT_DXL));
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(ROOM_DXL));
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.println(dxl_shield.getPresentPosition(LEFT_DXL));
+      
+      if (dxl_shield.readControlTableItem(MOVING, FRONT_DXL) == false &&
+          dxl_shield.readControlTableItem(MOVING, ROOM_DXL) == false &&
+          dxl_shield.readControlTableItem(MOVING, LEFT_DXL) == false)
+      {
+        if (check%2)
+        {
+          from_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
+          from_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
+          from_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
+        }
+        else
+        {
+          from_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+          from_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+          from_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+        }
+        check++;
+      }
+  #endif
+      tick = millis();
+    }
+  }
 }
