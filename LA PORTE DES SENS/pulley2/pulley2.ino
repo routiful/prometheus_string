@@ -15,8 +15,8 @@
 #define LEFT_DXL  2
 #define ROOM_DXL  3
 
-#define UP  -1.0f // CW
-#define DOWN 1.0f // CCW
+#define UP  1.0f // CW
+#define DOWN -1.0f // CCW
 
 #define DXL_ONE_ROTATION 4096.0f
 #define DXL_HALF_ROTATION 2048.0f
@@ -188,11 +188,11 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
     return;
   }
 
-  const float PULLEY_RADIUS = 0.050; // meter
-  const float PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 0.314 meter
-  const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION; // 0.00008
+  const int PULLEY_RADIUS = 30; // milli
+  const int PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 188
+  const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION;
   
-  float present_height = dxl_shield.getPresentPosition(id) * HEIGHT_PER_ONE_DXL_UNIT;
+  float present_height = dxl_shield.getPresentPosition(id, UNIT_RAW) * HEIGHT_PER_ONE_DXL_UNIT;
   float dir = 0.0;
   if (present_height <= goal_height) 
   {
@@ -203,21 +203,37 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
     dir = DOWN;
   }
 
+      DEBUG_SERIAL.print(PULLEY_RADIUS);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(present_height);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(goal_height);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.print(dir);
+      DEBUG_SERIAL.print(" ");
+      DEBUG_SERIAL.println(abs(present_height - goal_height));
+
   to_rotation(id, dir, abs(present_height - goal_height) / HEIGHT_PER_ONE_DXL_UNIT, move_time);
 }
 
 void loop() 
 {
   static uint32_t tick = millis();
-  if (Serial.available() > 0) 
-  {
+  //if (Serial.available() > 0) 
+  //{
     if ((millis()-tick) >= 100)
     { 
-      String read_string = Serial.readStringUntil('\n');
-      Serial.println(String(read_string));
-      int goal_height = read_string.toInt();
+      //String read_string = Serial.readStringUntil('\n');
+      //Serial.println(String(read_string));
+      //int goal_height = read_string.toInt();
       
-      move(FRONT_DXL, goal_height);
+      move(FRONT_DXL, 300);
 #if 0
       static int check = 0;
       DEBUG_SERIAL.print("moving: ");
@@ -233,20 +249,20 @@ void loop()
       {
         if (check%2)
         {
-          from_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
-          from_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
-          from_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
+          to_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
+          to_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
+          to_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
         }
         else
         {
-          from_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-          from_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-          from_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+          to_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+          to_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
+          to_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
         }
         check++;
       }
   #endif
       tick = millis();
     }
-  }
+  //}
 }
