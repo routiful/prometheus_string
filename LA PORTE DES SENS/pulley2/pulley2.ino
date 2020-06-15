@@ -178,31 +178,22 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
   const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION;
   
   float present_height = dxl_shield.getPresentPosition(id, UNIT_RAW) * HEIGHT_PER_ONE_DXL_UNIT;
-  float dir = 0.0;
-  if (present_height <= goal_height) 
-  {
-    dir = UP;
-  }
-  else 
-  {
-    dir = DOWN;
-  }
 
-      DEBUG_SERIAL.print(PULLEY_RADIUS);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(present_height);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(goal_height);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.println(dir);
+  DEBUG_SERIAL.print(PULLEY_RADIUS);
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.print(present_height);
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.print(goal_height);
+  DEBUG_SERIAL.print(" ");
+  DEBUG_SERIAL.println(dir);
 
-  to_rotation(id, dir, goal_height / HEIGHT_PER_ONE_DXL_UNIT, move_time);
+  to_rotation(id, UP, goal_height / HEIGHT_PER_ONE_DXL_UNIT, move_time);
 }
 
 void loop() 
