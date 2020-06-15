@@ -208,15 +208,21 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
 void loop() 
 {
   static uint32_t tick = millis();
-  //if (Serial.available() > 0) 
-  //{
+  if (Serial.available() > 0) 
+  {
     if ((millis()-tick) >= 100)
-    { 
-      //String read_string = Serial.readStringUntil('\n');
-      //Serial.println(String(read_string));
-      //int goal_height = read_string.toInt();
-      
-      move(FRONT_DXL, 300);
+    {     
+      if (dxl_shield.readControlTableItem(MOVING, FRONT_DXL))
+      {
+        return;
+      }
+      else
+      {
+        String read_string = Serial.readStringUntil('\n');
+        Serial.println(String(read_string));
+        
+        move(DXL_ID, read_string.toInt()); // miilis
+      }
 #if 0
       static int check = 0;
       DEBUG_SERIAL.print("moving: ");
@@ -247,5 +253,5 @@ void loop()
   #endif
       tick = millis();
     }
-  //}
+  }
 }
