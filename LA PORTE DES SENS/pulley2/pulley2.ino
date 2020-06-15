@@ -15,12 +15,12 @@
 #define LEFT_DXL  2
 #define ROOM_DXL  3
 
-#define UP  1.0f // CW
-#define DOWN -1.0f // CCW
+const float UP = 1.0; // CW
+const float DOWN = -1.0; // CCW
 
-#define DXL_ONE_ROTATION 4096.0f
-#define DXL_HALF_ROTATION 2048.0f
-#define DXL_ZERO_ROTATION 0.0f
+const float DXL_ONE_ROTATION = 4096.0;
+const float DXL_HALF_ROTATION = 2048.0;
+const float DXL_ZERO_ROTATION = 0.0;
 
 // Ultrasoinc
 #define TRIG_PIN  13
@@ -33,21 +33,6 @@ SoftwareSerial soft_serial(10, 11); // DYNAMIXELShield UART RX/TX
 DynamixelShield dxl_shield;
 const float DXL_PROTOCOL_VERSION = 2.0;
 int8_t dxl[3] = {FRONT_DXL, LEFT_DXL, ROOM_DXL};
-
-typedef enum 
-{
-  WAIT_FLAG = 0,
-  FRONT_DXL_UP,
-  ROOM_DXL_UP,
-  LEFT_DXL_UP,
-  FRONT_DXL_DOWN,
-  ROOM_DXL_DOWN,
-  LEFT_DXL_DOWN,
-  ALL_DXL_UP,
-  ALL_DXL_DOWN
-}State;
-
-State state;
 
 class Ultrasonic
 {
@@ -188,8 +173,8 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
     return;
   }
 
-  const int PULLEY_RADIUS = 30; // milli
-  const int PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 188
+  const float PULLEY_RADIUS = 30.0; // millis
+  const float PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 188 millis per one rotation
   const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION;
   
   float present_height = dxl_shield.getPresentPosition(id, UNIT_RAW) * HEIGHT_PER_ONE_DXL_UNIT;
@@ -215,11 +200,9 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
       DEBUG_SERIAL.print(" ");
       DEBUG_SERIAL.print(goal_height);
       DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(dir);
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.println(abs(present_height - goal_height));
+      DEBUG_SERIAL.println(dir);
 
-  to_rotation(id, dir, abs(present_height - goal_height) / HEIGHT_PER_ONE_DXL_UNIT, move_time);
+  to_rotation(id, dir, goal_height / HEIGHT_PER_ONE_DXL_UNIT, move_time);
 }
 
 void loop() 
