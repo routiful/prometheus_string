@@ -11,9 +11,9 @@
 //  #define DEBUG_SERIAL Serial
 //#endif
 
-#define FRONT_DXL 1
-#define LEFT_DXL  2
-#define ROOM_DXL  3
+#define FIRST_DXL 1
+#define SECOND_DXL  2
+#define THIRD_DXL  3
 
 const float UP = 1.0; // CW
 const float DOWN = -1.0; // CCW
@@ -32,7 +32,10 @@ SoftwareSerial soft_serial(10, 11); // DYNAMIXELShield UART RX/TX
 
 DynamixelShield dxl_shield;
 const float DXL_PROTOCOL_VERSION = 2.0;
-int8_t dxl[3] = {FRONT_DXL, LEFT_DXL, ROOM_DXL};
+int8_t dxl[3] = {FIRST_DXL, SECOND_DXL, THIRD_DXL};
+
+#define STRING_BUF_NUM 64
+String cmd[STRING_BUF_NUM];
 
 class Ultrasonic
 {
@@ -106,41 +109,41 @@ Ultrasonic ultrasonic;
 
 void setup() 
 {
-  DEBUG_SERIAL.begin(9600);
-  BLUETOOTH.begin(9600);
+  DEBUG_SERIAL.begin(115200);
+//  BLUETOOTH.begin(9600);
 //  while(!DEBUG_SERIAL);
 
   dxl_shield.begin(1000000);
   dxl_shield.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
-  dxl_shield.ping(FRONT_DXL);
-  dxl_shield.ping(ROOM_DXL);
-  dxl_shield.ping(LEFT_DXL);
+  dxl_shield.ping(FIRST_DXL);
+  dxl_shield.ping(SECOND_DXL);
+  dxl_shield.ping(THIRD_DXL);
 
-  dxl_shield.torqueOff(FRONT_DXL);
-  dxl_shield.torqueOff(ROOM_DXL);
-  dxl_shield.torqueOff(LEFT_DXL);
+  dxl_shield.torqueOff(FIRST_DXL);
+  dxl_shield.torqueOff(SECOND_DXL);
+  dxl_shield.torqueOff(THIRD_DXL);
 
   const int8_t EXTENDED_POSITION_CONTROL_MODE = 4;
-  dxl_shield.writeControlTableItem(OPERATING_MODE, FRONT_DXL, EXTENDED_POSITION_CONTROL_MODE);
-  dxl_shield.writeControlTableItem(OPERATING_MODE, ROOM_DXL, EXTENDED_POSITION_CONTROL_MODE);
-  dxl_shield.writeControlTableItem(OPERATING_MODE, LEFT_DXL, EXTENDED_POSITION_CONTROL_MODE);
+  dxl_shield.writeControlTableItem(OPERATING_MODE, FIRST_DXL, EXTENDED_POSITION_CONTROL_MODE);
+  dxl_shield.writeControlTableItem(OPERATING_MODE, SECOND_DXL, EXTENDED_POSITION_CONTROL_MODE);
+  dxl_shield.writeControlTableItem(OPERATING_MODE, THIRD_DXL, EXTENDED_POSITION_CONTROL_MODE);
 
   const int8_t TIME_BASED_PROFILE = 4;
-  dxl_shield.writeControlTableItem(DRIVE_MODE, FRONT_DXL, TIME_BASED_PROFILE);
-  dxl_shield.writeControlTableItem(DRIVE_MODE, ROOM_DXL, TIME_BASED_PROFILE);
-  dxl_shield.writeControlTableItem(DRIVE_MODE, LEFT_DXL, TIME_BASED_PROFILE);
+  dxl_shield.writeControlTableItem(DRIVE_MODE, FIRST_DXL, TIME_BASED_PROFILE);
+  dxl_shield.writeControlTableItem(DRIVE_MODE, SECOND_DXL, TIME_BASED_PROFILE);
+  dxl_shield.writeControlTableItem(DRIVE_MODE, THIRD_DXL, TIME_BASED_PROFILE);
 
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, FRONT_DXL, 0);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, ROOM_DXL, 0);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, LEFT_DXL, 0);
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, FIRST_DXL, 0);
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, SECOND_DXL, 0);
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, THIRD_DXL, 0);
 
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, FRONT_DXL, -1 * dxl_shield.getPresentPosition(FRONT_DXL));
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, ROOM_DXL, -1 * dxl_shield.getPresentPosition(ROOM_DXL));
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, LEFT_DXL, -1 * dxl_shield.getPresentPosition(LEFT_DXL));
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, FIRST_DXL, -1 * dxl_shield.getPresentPosition(FIRST_DXL));
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, SECOND_DXL, -1 * dxl_shield.getPresentPosition(SECOND_DXL));
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, THIRD_DXL, -1 * dxl_shield.getPresentPosition(THIRD_DXL));
   
-  dxl_shield.torqueOn(FRONT_DXL);
-  dxl_shield.torqueOn(ROOM_DXL);
-  dxl_shield.torqueOn(LEFT_DXL);
+  dxl_shield.torqueOn(FIRST_DXL);
+  dxl_shield.torqueOn(SECOND_DXL);
+  dxl_shield.torqueOn(THIRD_DXL);
 
   ultrasonic.init(TRIG_PIN, ECHO_PIN);
 }
@@ -179,70 +182,79 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
   
   float present_height = dxl_shield.getPresentPosition(id, UNIT_RAW) * HEIGHT_PER_ONE_DXL_UNIT;
 
-  DEBUG_SERIAL.print(PULLEY_RADIUS);
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.print(present_height);
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.print(goal_height);
-  DEBUG_SERIAL.print(" ");
-  DEBUG_SERIAL.println(dir);
+//  DEBUG_SERIAL.print(PULLEY_RADIUS);
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.print(present_height);
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.print(goal_height);
+//  DEBUG_SERIAL.print(" ");
+//  DEBUG_SERIAL.println(dir);
 
   to_rotation(id, UP, goal_height / HEIGHT_PER_ONE_DXL_UNIT, move_time);
+}
+
+void split(String data, char separator, String* temp)
+{
+  int cnt = 0;
+  int get_index = 0;
+
+  String copy = data;
+  
+  while(true)
+  {
+    get_index = copy.indexOf(separator);
+
+    if(-1 != get_index)
+    {
+      temp[cnt] = copy.substring(0, get_index);
+
+      copy = copy.substring(get_index + 1);
+    }
+    else
+    {
+      temp[cnt] = copy.substring(0, copy.length());
+      break;
+    }
+    ++cnt;
+  }
 }
 
 void loop() 
 {
   static uint32_t tick = millis();
-  if (Serial.available() > 0) 
+  if (DEBUG_SERIAL.available() > 0) 
   {
-    if ((millis()-tick) >= 100)
-    {     
-      if (dxl_shield.readControlTableItem(MOVING, FRONT_DXL))
-      {
-        return;
-      }
-      else
-      {
-        String read_string = Serial.readStringUntil('\n');
-        Serial.println(String(read_string));
-        
-        move(DXL_ID, read_string.toInt()); // miilis
-      }
-#if 0
-      static int check = 0;
-      DEBUG_SERIAL.print("moving: ");
-      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(FRONT_DXL));
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.print(dxl_shield.getPresentPosition(ROOM_DXL));
-      DEBUG_SERIAL.print(" ");
-      DEBUG_SERIAL.println(dxl_shield.getPresentPosition(LEFT_DXL));
-      
-      if (dxl_shield.readControlTableItem(MOVING, FRONT_DXL) == false &&
-          dxl_shield.readControlTableItem(MOVING, ROOM_DXL) == false &&
-          dxl_shield.readControlTableItem(MOVING, LEFT_DXL) == false)
-      {
-        if (check%2)
-        {
-          to_rotation(FRONT_DXL, UP, DXL_HALF_ROTATION, 4000);
-          to_rotation(ROOM_DXL, UP, DXL_HALF_ROTATION, 4000);
-          to_rotation(LEFT_DXL, UP, DXL_HALF_ROTATION, 4000);
-        }
-        else
-        {
-          to_rotation(FRONT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-          to_rotation(ROOM_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-          to_rotation(LEFT_DXL, DOWN, DXL_HALF_ROTATION, 4000);
-        }
-        check++;
-      }
-  #endif
-      tick = millis();
+      String read_string = DEBUG_SERIAL.readStringUntil('\n');
+//      DEBUG_SERIAL.println(String(read_string));
+
+      read_string.trim();
+      split(read_string, ' ', cmd);
+  }
+
+  uint32_t move_time = 2000;
+  if ((millis()-tick) >= move_time)
+  {
+//    DEBUG_SERIAL.print(cmd[0].toInt()); DEBUG_SERIAL.print(" ");
+//    DEBUG_SERIAL.print(cmd[1].toInt()); DEBUG_SERIAL.print(" ");
+//    DEBUG_SERIAL.println(cmd[2].toInt());
+    if (dxl_shield.readControlTableItem(MOVING, FIRST_DXL) &&
+        dxl_shield.readControlTableItem(MOVING, SECOND_DXL) &&
+        dxl_shield.readControlTableItem(MOVING, THIRD_DXL))
+    {
+      return;
     }
+    else
+    {
+        move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
+        move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
+        move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis 
+    }
+    tick = millis();
   }
 }
