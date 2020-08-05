@@ -47,6 +47,77 @@ int led_pin = 14;
 #define FAST 1023
 #define SLOW 100
 
+class Ultrasonic
+{
+ public:
+  Ultrasonic(){}
+  ~Ultrasonic(){}
+
+  void init(int set_trig_pin, int set_echo_pin)
+  {
+    trig_pin = set_trig_pin;
+    echo_pin = set_echo_pin;
+
+    pinMode(trig_pin, OUTPUT);
+    pinMode(echo_pin, INPUT);
+  }
+
+  float get_distance()
+  {
+    float duration, distance;
+    digitalWrite(trig_pin, HIGH);
+    delay(10);
+    digitalWrite(trig_pin, LOW);
+   
+    // echoPin 이 HIGH를 유지한 시간을 저장 한다.
+    duration = pulseIn(echo_pin, HIGH);
+    // HIGH 였을 때 시간(초음파가 보냈다가 다시 들어온 시간)을 가지고 거리를 계산 한다.
+    // 340은 초당 초음파(소리)의 속도, 10000은 밀리세컨드를 세컨드로, 왕복거리이므로 2로 나눠준다.
+    distance = ((float)(340 * duration) / 10000) / 2;
+  
+    return distance;
+  }
+
+  float get_filtered_distance()
+  {
+    return average_filter(get_distance());
+  }
+
+ private:
+  float average_filter(const float dist)
+  {
+    const int numReadings = 5;
+    static int readings[numReadings];      // the readings from the analog input
+    static int readIndex = 0;     // the index of the current reading
+    static int total = 0;         // the running total
+    int average = 0;              // the average
+  
+    // subtract the last reading:
+    total = total - readings[readIndex];
+    // read from the sensor:
+    readings[readIndex] = dist;
+    // add the reading to the total:
+    total = total + readings[readIndex];
+    // advance to the next position in the array:
+    readIndex = readIndex + 1;
+  
+    // if we're at the end of the array...
+    if (readIndex >= numReadings) 
+    {
+      // ...wrap around to the beginning:
+      readIndex = 0;
+    }
+  
+    // calculate the average:
+    return average = total / numReadings;
+  }
+  
+  int trig_pin;
+  int echo_pin;
+};
+
+Ultrasonic ultrasonic;
+
 void setup() 
 {
   Serial.begin(57600);
@@ -54,6 +125,8 @@ void setup()
 
   pinMode(analogInPin, INPUT_ANALOG);
   pinMode(led_pin, OUTPUT);
+
+  ultrasonic.init(0, 1);
 
   const char *log;
   bool result = false;
@@ -175,9 +248,10 @@ void loop()
   static uint32_t t = millis();
   if ((millis() - t) >= (CONTROL_PERIOD * 1000))
   {
-    sonic_data = analogRead(analogInPin) * 3;
+    sonic_data = ultrasonic.get_distance();
+//    Serial.println(sonic_data);
   
-    if (sonic_data < 1000)
+    if (sonic_data < 100) // centimeter
     {
       long rand_num = random(1000);
       if (rand_num % MOTION_NUM == 0)
