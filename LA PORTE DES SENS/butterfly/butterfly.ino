@@ -249,7 +249,7 @@ void loop()
   if ((millis() - t) >= (CONTROL_PERIOD * 1000))
   {
     sonic_data = ultrasonic.get_distance();
-//    Serial.println(sonic_data);
+    Serial.println(sonic_data);
   
     if (sonic_data < 100) // centimeter
     {
