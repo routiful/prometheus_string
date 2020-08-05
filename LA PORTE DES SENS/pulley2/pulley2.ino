@@ -237,24 +237,24 @@ void loop()
       split(read_string, ' ', cmd);
   }
 
-  uint32_t move_time = 2000;
+  uint32_t move_time = 50; // milliseconds
   if ((millis()-tick) >= move_time)
   {
 //    DEBUG_SERIAL.print(cmd[0].toInt()); DEBUG_SERIAL.print(" ");
 //    DEBUG_SERIAL.print(cmd[1].toInt()); DEBUG_SERIAL.print(" ");
 //    DEBUG_SERIAL.println(cmd[2].toInt());
-    if (dxl_shield.readControlTableItem(MOVING, FIRST_DXL) &&
-        dxl_shield.readControlTableItem(MOVING, SECOND_DXL) &&
-        dxl_shield.readControlTableItem(MOVING, THIRD_DXL))
-    {
-      return;
-    }
-    else
-    {
+//    if (dxl_shield.readControlTableItem(MOVING, FIRST_DXL) &&
+//        dxl_shield.readControlTableItem(MOVING, SECOND_DXL) &&
+//        dxl_shield.readControlTableItem(MOVING, THIRD_DXL))
+//    {
+//      return;
+//    }
+//    else
+//    {
         move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
         move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
         move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis 
-    }
+//    }
     tick = millis();
   }
 }
