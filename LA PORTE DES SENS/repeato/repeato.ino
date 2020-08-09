@@ -13,8 +13,8 @@ DynamixelShield dxl;
   #define DEBUG_SERIAL Serial
 #endif
 
- #define GET_MOTION
-// #define PLAY_MOTION
+// #define GET_MOTION
+ #define PLAY_MOTION
 
 const int32_t DXL_BAUDRATE = 1000000;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -31,12 +31,18 @@ uint32_t delay_t_ = 0;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const uint8_t PAGE = 2;
+const uint8_t PAGE = 6;
 const float motion_[PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {
   // deg ... move_time(sec)(From n-1 to n), delay_time(sec)(Fron n to n+1)
-  {150.00, 150.00, 150.0, 0.29, 3.0, 5.0},
-  {180.00, 120.00, 180.0, 0.29, 1.0, 0.0}
+  {194.88, 90.00, 92.80, 154.86, 3.00, 1.00},
+  {194.88, 126.44, 106.72, 109.04, 3.00, 1.00},
+  {205.32, 98.31, 91.06, 161.82, 3.00, 1.00},
+  {180.30, 161.24, 91.06, 208.22, 3.00, 1.00},
+  {155.15, 91.35, 87.58, 162.69, 3.00, 1.00},
+  {180.91, 117.74, 60.32, 151.09, 3.00, 1.00}
 };
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -249,7 +255,10 @@ void loop()
       rgb_led.on(0, 0, 255);
     }
 
-    DEBUG_SERIAL.print("Ultra : ");
+    DEBUG_SERIAL.print("Page : ");
+    DEBUG_SERIAL.print(page_cnt_);
+    
+    DEBUG_SERIAL.print(" Ultra : ");
     DEBUG_SERIAL.println(ultrasonic.get_distance());
 
     move();
@@ -317,7 +326,7 @@ void get_motion()
       DEBUG_SERIAL.println(";");
 
       DEBUG_SERIAL.println("const float motion_[PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {");
-      DEBUG_SERIAL.println("\t// deg ... move_time(sec), delay_time(sec)");
+      DEBUG_SERIAL.println("\t// deg ... move_time(sec)(From n-1 to n), delay_time(sec)(Fron n to n+1)");
       
       for (int num = 0; num < page; num++)
       {
