@@ -25,25 +25,50 @@ const uint8_t DXL_ID[DXL_CNT] = {1, 2, 3, 4};
 const uint8_t MOVE_TIME_CNT = 1;
 const uint8_t DELAY_TIME_CNT = 1;
 
-uint8_t page_cnt_ = 0;
+int8_t page_cnt_ = -1;
 uint32_t delay_t_ = 0;
 
+bool trigger_ = false;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const uint8_t PAGE = 6;
-const float motion_[PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {
+const uint8_t DEFAULT_MOTION_PAGE = 16;
+const float default_motion_[DEFAULT_MOTION_PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {
   // deg ... move_time(sec)(From n-1 to n), delay_time(sec)(Fron n to n+1)
-  {194.88, 90.00, 92.80, 154.86, 3.00, 1.00},
-  {194.88, 126.44, 106.72, 109.04, 3.00, 1.00},
-  {205.32, 98.31, 91.06, 161.82, 3.00, 1.00},
-  {180.30, 161.24, 91.06, 208.22, 3.00, 1.00},
-  {155.15, 91.35, 87.58, 162.69, 3.00, 1.00},
-  {180.91, 117.74, 60.32, 151.09, 3.00, 1.00}
+  {213.44, 106.43, 103.82, 149.06, 2.00, 1.00},
+  {242.15, 97.73, 93.38, 181.25, 2.00, 1.00},
+  {246.21, 91.93, 84.10, 127.31, 3.00, 1.00},
+  {215.47, 87.00, 128.18, 137.17, 2.00, 0.00},
+  {192.27, 84.68, 111.36, 146.16, 3.00, 1.00},
+  {91.35, 189.37, 161.24, 150.22, 2.00, 1.00},
+  {95.70, 247.95, 81.49, 137.75, 2.00, 1.00},
+  {104.98, 246.79, 88.45, 182.41, 3.00, 0.00},
+  {224.46, 116.00, 91.06, 157.76, 2.00, 1.00},
+  {244.47, 116.87, 92.51, 156.02, 3.00, 0.00},
+  {205.61, 112.23, 92.51, 156.02, 2.00, 0.00},
+  {221.27, 111.36, 92.51, 154.28, 3.00, 1.00},
+  {208.22, 108.75, 92.22, 140.65, 2.00, 0.00},
+  {227.07, 106.43, 89.32, 162.69, 3.00, 1.00},
+  {218.37, 115.13, 87.87, 167.04, 2.00, 1.00},
+  {209.09, 129.05, 88.45, 159.50, 3.00, 1.00}
 };
 
-
-
+const uint8_t REACT_MOTION_PAGE = 11;
+const float react_motion_[REACT_MOTION_PAGE][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT] = {
+  // deg ... move_time(sec)(From n-1 to n), delay_time(sec)(Fron n to n+1)
+  {188.22, 50.75, 92.22, 140.65, 0.00, 0.00},
+  {188.22, 50.75, 92.22, 140.65, 0.00, 1.00},
+  {228.22, 50.75, 92.22, 140.65, 2.00, 0.00},
+  {188.22, 50.75, 92.22, 140.65, 2.00, 0.00},
+  {228.22, 50.75, 92.22, 140.65, 2.00, 0.00},
+  {188.22, 50.75, 92.22, 140.65, 2.00, 0.00},
+  {213.44, 50.75, 92.22, 149.06, 2.00, 1.00},
+  {242.15, 50.75, 92.22, 181.25, 2.00, 1.00},
+  {246.21, 50.75, 92.22, 127.31, 3.00, 1.00},
+  {215.47, 50.75, 92.22, 137.17, 2.00, 0.00},
+  {192.27, 50.75, 92.22, 146.16, 3.00, 1.00}
+};
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -181,11 +206,13 @@ void setup()
 
   rgb_led.init(9, 10, 11);
   ultrasonic.init(12, 13);
-  
+
+  randomSeed(analogRead(0));
+  page_cnt_ = random(0, DEFAULT_MOTION_PAGE-1);
   DEBUG_SERIAL.println("Ready to Start");
 }
 
-void move()
+void move(float motion[][DXL_CNT + MOVE_TIME_CNT + DELAY_TIME_CNT], uint8_t page_num)
 {  
   const float DEGPERSEC_TO_RPM = 0.17f;
   const float DXL_AX12_RPM_UNIT = 0.111f;
@@ -200,29 +227,35 @@ void move()
 
   if (dxl.readControlTableItem(MOVING, DXL_ID[0]) == 1)
   {
+    DEBUG_SERIAL.println(" MOVE");
     delay_t = millis();
     return;
   }
   else
   {
-    if ((millis()-delay_t) >= (motion_[page_cnt_][DELAY_TIME] * 1000))
+    if ((millis()-delay_t) >= (motion[page_cnt_][DELAY_TIME] * 1000))
     {
+      DEBUG_SERIAL.println(" NEXT");
       page_cnt_++;
-      if (page_cnt_ >= PAGE)
+      if (page_cnt_ >= page_num)
       {
-        page_cnt_ = 0;
+        trigger_ = false;
+        page_cnt_ = random(0, DEFAULT_MOTION_PAGE-1);
+
+        return;
       }
     }
     else
     {
+      DEBUG_SERIAL.println(" WAIT");
       return;
     }
   }
   
   for (uint8_t id = DXL_ID[0], num = 0; id <= DXL_ID[DXL_CNT-1]; id++, num++)
   {
-    diff_deg = dxl.getPresentPosition(id, UNIT_DEGREE) - motion_[page_cnt_][num];
-    deg_per_sec = fabs(diff_deg) / motion_[page_cnt_][MOVE_TIME];
+    diff_deg = dxl.getPresentPosition(id, UNIT_DEGREE) - motion[page_cnt_][num];
+    deg_per_sec = fabs(diff_deg) / motion[page_cnt_][MOVE_TIME];
     rpm_per_sec = deg_per_sec * DEGPERSEC_TO_RPM / DXL_AX12_RPM_UNIT;
 
 //    DEBUG_SERIAL.print("id "); DEBUG_SERIAL.print(id);
@@ -232,7 +265,7 @@ void move()
 //    DEBUG_SERIAL.print(" page_cnt "); DEBUG_SERIAL.print(page_cnt_);
     
     dxl.writeControlTableItem(MOVING_SPEED, id, (uint32_t)rpm_per_sec);
-    dxl.setGoalPosition(id, motion_[page_cnt_][num], UNIT_DEGREE);
+    dxl.setGoalPosition(id, motion[page_cnt_][num], UNIT_DEGREE);
   }
 }
 
@@ -242,26 +275,46 @@ void loop()
   static uint32_t t = millis();
   if ((millis() - t) >= (CONTROL_PERIOD * 1000))
   {
-    if (page_cnt_%3 == 0)
-    {
-      rgb_led.on(255, 0, 0);
-    }
-    else if (page_cnt_%3 == 1)
-    {
-      rgb_led.on(0, 255, 0);
-    }
-    else if (page_cnt_%3 == 2)
-    {
-      rgb_led.on(0, 0, 255);
-    }
+//    if (page_cnt_%3 == 0)
+//    {
+//      rgb_led.on(255, 0, 0);
+//    }
+//    else if (page_cnt_%3 == 1)
+//    {
+//      rgb_led.on(0, 255, 0);
+//    }
+//    else if (page_cnt_%3 == 2)
+//    {
+//      rgb_led.on(0, 0, 255);
+//    }
 
-    DEBUG_SERIAL.print("Page : ");
+    DEBUG_SERIAL.print("Page ");
     DEBUG_SERIAL.print(page_cnt_);
-    
-    DEBUG_SERIAL.print(" Ultra : ");
-    DEBUG_SERIAL.println(ultrasonic.get_distance());
 
-    move();
+    DEBUG_SERIAL.print(" Trigger ");
+    DEBUG_SERIAL.print(trigger_);
+    
+    DEBUG_SERIAL.print(" Ultra ");
+    DEBUG_SERIAL.print(ultrasonic.get_distance());
+
+    if (trigger_ == true)
+    {
+      move(react_motion_, REACT_MOTION_PAGE);
+      rgb_led.on(0,255,0);
+    }
+    else
+    { 
+      if (ultrasonic.get_distance() <= 30.0)
+      {
+        trigger_ = true;
+        page_cnt_ = 0;
+      }
+      else
+      {
+        move(default_motion_, DEFAULT_MOTION_PAGE);
+        rgb_led.on(0, 0, 0);
+      }
+    }
     
     t = millis();
   }
@@ -270,7 +323,6 @@ void loop()
 #ifdef GET_MOTION
   get_motion();
 #endif
-
 }
 
 void get_motion()
