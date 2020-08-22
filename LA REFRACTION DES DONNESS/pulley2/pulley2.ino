@@ -11,9 +11,13 @@
 //  #define DEBUG_SERIAL Serial
 //#endif
 
-#define FIRST_DXL 1
-#define SECOND_DXL  2
+#define FIRST_DXL  1
+#define SECOND_DXL 2
 #define THIRD_DXL  3
+#define FOURTH_DXL 4
+#define FIFTH_DXL  5
+
+#define DXL_CNT 5
 
 const float UP = 1.0; // CW
 const float DOWN = -1.0; // CCW
@@ -32,7 +36,7 @@ SoftwareSerial soft_serial(10, 11); // DYNAMIXELShield UART RX/TX
 
 DynamixelShield dxl_shield;
 const float DXL_PROTOCOL_VERSION = 2.0;
-int8_t dxl[3] = {FIRST_DXL, SECOND_DXL, THIRD_DXL};
+int8_t dxl[DXL_CNT] = {FIRST_DXL, SECOND_DXL, THIRD_DXL, FOURTH_DXL, FIFTH_DXL};
 
 #define STRING_BUF_NUM 64
 String cmd[STRING_BUF_NUM];
@@ -107,43 +111,36 @@ class Ultrasonic
 };
 Ultrasonic ultrasonic;
 
+
+void dxl_setup(uint8_t id)
+{
+  dxl_shield.ping(id);
+
+  dxl_shield.torqueOff(FIRST_DXL);
+  
+  const int8_t EXTENDED_POSITION_CONTROL_MODE = 4;
+  dxl_shield.writeControlTableItem(OPERATING_MODE, id, EXTENDED_POSITION_CONTROL_MODE);
+
+  const int8_t TIME_BASED_PROFILE = 4;
+  dxl_shield.writeControlTableItem(DRIVE_MODE, id, TIME_BASED_PROFILE);
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, id, 0);
+  dxl_shield.writeControlTableItem(HOMING_OFFSET, id, -1 * dxl_shield.getPresentPosition(id));
+
+  dxl_shield.torqueOn(id);
+}
+
 void setup() 
 {
   DEBUG_SERIAL.begin(115200);
-//  BLUETOOTH.begin(9600);
 //  while(!DEBUG_SERIAL);
 
   dxl_shield.begin(1000000);
   dxl_shield.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
-  dxl_shield.ping(FIRST_DXL);
-  dxl_shield.ping(SECOND_DXL);
-  dxl_shield.ping(THIRD_DXL);
 
-  dxl_shield.torqueOff(FIRST_DXL);
-  dxl_shield.torqueOff(SECOND_DXL);
-  dxl_shield.torqueOff(THIRD_DXL);
-
-  const int8_t EXTENDED_POSITION_CONTROL_MODE = 4;
-  dxl_shield.writeControlTableItem(OPERATING_MODE, FIRST_DXL, EXTENDED_POSITION_CONTROL_MODE);
-  dxl_shield.writeControlTableItem(OPERATING_MODE, SECOND_DXL, EXTENDED_POSITION_CONTROL_MODE);
-  dxl_shield.writeControlTableItem(OPERATING_MODE, THIRD_DXL, EXTENDED_POSITION_CONTROL_MODE);
-
-  const int8_t TIME_BASED_PROFILE = 4;
-  dxl_shield.writeControlTableItem(DRIVE_MODE, FIRST_DXL, TIME_BASED_PROFILE);
-  dxl_shield.writeControlTableItem(DRIVE_MODE, SECOND_DXL, TIME_BASED_PROFILE);
-  dxl_shield.writeControlTableItem(DRIVE_MODE, THIRD_DXL, TIME_BASED_PROFILE);
-
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, FIRST_DXL, 0);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, SECOND_DXL, 0);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, THIRD_DXL, 0);
-
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, FIRST_DXL, -1 * dxl_shield.getPresentPosition(FIRST_DXL));
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, SECOND_DXL, -1 * dxl_shield.getPresentPosition(SECOND_DXL));
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, THIRD_DXL, -1 * dxl_shield.getPresentPosition(THIRD_DXL));
-  
-  dxl_shield.torqueOn(FIRST_DXL);
-  dxl_shield.torqueOn(SECOND_DXL);
-  dxl_shield.torqueOn(THIRD_DXL);
+  for (uint8_t id = 1; id < DXL_CNT; id++)
+  {
+    dxl_setup(id);
+  }
 
   ultrasonic.init(TRIG_PIN, ECHO_PIN);
 }
@@ -253,7 +250,9 @@ void loop()
 //    {
         move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
         move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
-        move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis 
+        move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis
+        move(FOURTH_DXL, cmd[3].toInt(), move_time); // miilis
+        move(FIFTH_DXL, cmd[4].toInt(), move_time); // miilis 
 //    }
     tick = millis();
   }
