@@ -1,21 +1,3 @@
-#include <DynamixelShield.h>
-
-/*******************************************************************************
-* Copyright 2016 ROBOTIS CO., LTD.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*******************************************************************************/
-
 /* Authors: Taehun Lim (Darby) */
 
 #include <DynamixelWorkbench.h>
@@ -59,7 +41,7 @@ float getDistance()
   digitalWrite(TRIG_PIN, HIGH);
   delay(10);
   digitalWrite(TRIG_PIN, LOW);
- 
+
   // echoPin 이 HIGH를 유지한 시간을 저장 한다.
   duration = pulseIn(ECHO_PIN, HIGH);
   // HIGH 였을 때 시간(초음파가 보냈다가 다시 들어온 시간)을 가지고 거리를 계산 한다.
@@ -81,7 +63,7 @@ void move(uint32_t move_time, float motor_1, float motor_2, float motor_3, float
   profile_velocity[1] = move_time;
   profile_velocity[2] = move_time;
   profile_velocity[3] = move_time;
-  
+
   result = dxl_wb.syncWrite(PROFILE_VELOCITY_SYNC_WRITE_HANDLER, &profile_velocity[0], &log);
   if (result == false)
   {
@@ -175,7 +157,7 @@ void checkDXLError()
 {
   const char *log;
   bool result = false;
-  
+
   for (int cnt = 0; cnt < dxl_cnt; cnt++)
   {
     int32_t get_data = 0;
@@ -218,7 +200,7 @@ void checkDXLError()
   }
 }
 
-void setup() 
+void setup()
 {
   Serial.begin(57600);
 //  while(!Serial); // If this line is activated, you need to open Serial Terminal.
@@ -241,9 +223,9 @@ void setup()
   else
   {
     Serial.print("Succeeded to init : ");
-    Serial.println(BAUDRATE);  
+    Serial.println(BAUDRATE);
   }
-  
+
   for (int cnt = 0; cnt < dxl_cnt; cnt++)
   {
     uint16_t model_number = 0;
@@ -261,7 +243,7 @@ void setup()
       Serial.print(" model_number : ");
       Serial.println(model_number);
     }
-    
+
     result = dxl_wb.jointMode(dxl_id[cnt], 3000, 0, &log);
     if (result == false)
     {
@@ -287,12 +269,12 @@ void setup()
     Serial.println(log);
     Serial.println("Failed to add profile velocity sync write handler");
   }
-  
+
   move(3000, 0 + POSE_OFFSET, 0, 0, 0);
 }
 
-void loop() 
-{  
+void loop()
+{
   static uint8_t motion_cnt = 0;
   static bool flag = false;
 
@@ -304,7 +286,7 @@ void loop()
     {
       flag = true;
     }
-    
+
     float distance = getDistance();
     // Serial.println(getDistance());
 

@@ -1,14 +1,14 @@
-/*************************************************** 
+/***************************************************
   This is an example for the Adafruit VS1053 Codec Breakout
 
-  Designed specifically to work with the Adafruit VS1053 Codec Breakout 
+  Designed specifically to work with the Adafruit VS1053 Codec Breakout
   ----> https://www.adafruit.com/products/1381
 
-  Adafruit invests time and resources providing this open source code, 
-  please support Adafruit and open-source hardware by purchasing 
+  Adafruit invests time and resources providing this open source code,
+  please support Adafruit and open-source hardware by purchasing
   products from Adafruit!
 
-  Written by Limor Fried/Ladyada for Adafruit Industries.  
+  Written by Limor Fried/Ladyada for Adafruit Industries.
   BSD license, all text above must be included in any redistribution
  ****************************************************/
 
@@ -21,7 +21,7 @@
 //#define CLK 13       // SPI Clock, shared with SD card
 //#define MISO 12      // Input data, from VS1053/SD card
 //#define MOSI 11      // Output data, to VS1053/SD card
-// Connect CLK, MISO and MOSI to hardware SPI pins. 
+// Connect CLK, MISO and MOSI to hardware SPI pins.
 // See http://arduino.cc/en/Reference/SPI "Connections"
 
 // These are the pins used for the breakout example
@@ -38,14 +38,14 @@
 // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
 #define DREQ 3       // VS1053 Data request, ideally an Interrupt pin
 
-Adafruit_VS1053_FilePlayer musicPlayer = 
+Adafruit_VS1053_FilePlayer musicPlayer =
   // create breakout-example object!
 //  Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
   // create shield-example object!
   Adafruit_VS1053_FilePlayer(SHIELD_RESET, SHIELD_CS, SHIELD_DCS, DREQ, CARDCS);
 
 bool music_on = false;
-  
+
 void setup() {
   SerialUSB.begin(9600);
 //  while(!SerialUSB);
@@ -57,7 +57,7 @@ void setup() {
      while (1);
   }
   SerialUSB.println(F("VS1053 found"));
-  
+
    if (!SD.begin(CARDCS)) {
     SerialUSB.println(F("SD failed, or not present"));
     while (1);  // don't do anything more
@@ -65,7 +65,7 @@ void setup() {
 
   // list files
 //  printDirectory(SD.open("/"), 0);
-  
+
   // Set volume for left, right channels. lower numbers == louder volume!
   musicPlayer.setVolume(5,5);
 
@@ -92,7 +92,7 @@ void loop() {
           musicPlayer.startPlayingFile("/test2.mp3");
         else
           musicPlayer.startPlayingFile("/test3.mp3");
-  
+
         music_on = true;
       }
     }
@@ -101,14 +101,14 @@ void loop() {
       musicPlayer.stopPlaying();
       music_on = false;
     }
-  }  
+  }
 }
 
 
 /// File listing helper
 void printDirectory(File dir, int numTabs) {
    while(true) {
-     
+
      File entry =  dir.openNextFile();
      if (! entry) {
        // no more files
@@ -130,4 +130,3 @@ void printDirectory(File dir, int numTabs) {
      entry.close();
    }
 }
-
