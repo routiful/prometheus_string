@@ -14,7 +14,9 @@ DynamixelShield dxl;
 #endif
 
 // #define GET_MOTION
- #define PLAY_MOTION
+#define PLAY_MOTION
+
+#define ULTRA_TRIGGER 150.0
 
 const int32_t DXL_BAUDRATE = 1000000;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -304,7 +306,7 @@ void loop()
     }
     else
     { 
-      if (ultrasonic.get_distance() <= 30.0)
+      if (ultrasonic.get_distance() <= ULTRA_TRIGGER)
       {
         trigger_ = true;
         page_cnt_ = 0;
