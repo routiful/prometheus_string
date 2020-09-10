@@ -19,16 +19,19 @@
 
 #define DXL_CNT 5
 
+// Ultrasoinc
+#define TRIG_PIN  13
+#define ECHO_PIN  12
+
+#define ULTRA_VALUE 2000
+#define WORKING_TIME 5*60*1000 // millis
+
 const float UP = 1.0; // CW
 const float DOWN = -1.0; // CCW
 
 const float DXL_ONE_ROTATION = 4096.0;
 const float DXL_HALF_ROTATION = 2048.0;
 const float DXL_ZERO_ROTATION = 0.0;
-
-// Ultrasoinc
-#define TRIG_PIN  13
-#define ECHO_PIN  12
 
 SoftwareSerial soft_serial(10, 11); // DYNAMIXELShield UART RX/TX
 #define BLUETOOTH soft_serial
@@ -111,12 +114,11 @@ class Ultrasonic
 };
 Ultrasonic ultrasonic;
 
-
 void dxl_setup(uint8_t id)
 {
   dxl_shield.ping(id);
 
-  dxl_shield.torqueOff(FIRST_DXL);
+  dxl_shield.torqueOff(id);
   
   const int8_t EXTENDED_POSITION_CONTROL_MODE = 4;
   dxl_shield.writeControlTableItem(OPERATING_MODE, id, EXTENDED_POSITION_CONTROL_MODE);
@@ -132,17 +134,17 @@ void dxl_setup(uint8_t id)
 void setup() 
 {
   DEBUG_SERIAL.begin(115200);
-//  while(!DEBUG_SERIAL);
+  // while(!DEBUG_SERIAL);
+
+  ultrasonic.init(TRIG_PIN, ECHO_PIN);
 
   dxl_shield.begin(1000000);
   dxl_shield.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
-  for (uint8_t id = 1; id < DXL_CNT; id++)
+  for (uint8_t cnt = 0, id = 1; cnt < DXL_CNT; cnt++, id++)
   {
     dxl_setup(id);
   }
-
-  ultrasonic.init(TRIG_PIN, ECHO_PIN);
 }
 
 void set_profile(uint8_t id, int32_t move_time = 2000)
@@ -234,26 +236,38 @@ void loop()
       split(read_string, ' ', cmd);
   }
 
+  static uint32_t move_cnt = 0xFFFFFFFF;
   uint32_t move_time = 50; // milliseconds
-  if ((millis()-tick) >= move_time)
+  if (move_cnt < WORKING_TIME / move_time)
   {
-//    DEBUG_SERIAL.print(cmd[0].toInt()); DEBUG_SERIAL.print(" ");
-//    DEBUG_SERIAL.print(cmd[1].toInt()); DEBUG_SERIAL.print(" ");
-//    DEBUG_SERIAL.println(cmd[2].toInt());
-//    if (dxl_shield.readControlTableItem(MOVING, FIRST_DXL) &&
-//        dxl_shield.readControlTableItem(MOVING, SECOND_DXL) &&
-//        dxl_shield.readControlTableItem(MOVING, THIRD_DXL))
-//    {
-//      return;
-//    }
-//    else
-//    {
-        move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
-        move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
-        move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis
-        move(FOURTH_DXL, cmd[3].toInt(), move_time); // miilis
-        move(FIFTH_DXL, cmd[4].toInt(), move_time); // miilis 
-//    }
-    tick = millis();
+    if ((millis()-tick) >= move_time)
+    {
+      move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
+      move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
+      move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis
+      move(FOURTH_DXL, cmd[3].toInt(), move_time); // miilis
+      move(FIFTH_DXL, cmd[4].toInt(), move_time); // miilis
+      
+      tick = millis();
+      move_cnt++;
+    }
+  }
+  else
+  {
+    move_time = 2000;
+    move(FIRST_DXL, 0.0, move_time); // miilis
+    move(SECOND_DXL, 0.0, move_time); // miilis 
+    move(THIRD_DXL, 0.0, move_time); // miilis
+    move(FOURTH_DXL, 0.0, move_time); // miilis
+    move(FIFTH_DXL, 0.0, move_time); // miilis
+
+    if (ultrasonic.get_distance() <= ULTRA_VALUE)
+    {
+      move_cnt = 0;
+    }
+    else
+    {
+       move_cnt = 0xFFFFFFFF;
+    }
   }
 }
