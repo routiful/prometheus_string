@@ -28,6 +28,8 @@
 
 #define MOVE_TIME 5000 //ms
 
+#define ULTRA_TRIGGER 400.0 // cm
+
 uint32_t tTime = 0;
 
 DynamixelWorkbench dxl_wb;
@@ -56,13 +58,15 @@ class Ultrasonic
     digitalWrite(trig_pin, HIGH);
     delay(10);
     digitalWrite(trig_pin, LOW);
-
-    // echoPin 이 HIGH를 유지한 시간을 저장 한다.
+   
+    // echoPin 이 HIGH를 유지한 시간(마이크로초)을 저장 한다.
     duration = pulseIn(echo_pin, HIGH);
     // HIGH 였을 때 시간(초음파가 보냈다가 다시 들어온 시간)을 가지고 거리를 계산 한다.
-    // 340은 초당 초음파(소리)의 속도, 10000은 밀리세컨드를 세컨드로, 왕복거리이므로 2로 나눠준다.
-    distance = ((float)(340 * duration) / 10000) / 2;
-
+    // 340은 초당 초음파(소리)의 속도, 10000은 마이크로 세컨드를 세컨드로, 왕복거리이므로 2로 나눠준다.
+    // 음파의 속도는 초당 340미터를 이동하거나, 29마이크로초 당 1센치를 이동합니다.
+    //distance = ((float)(340 * duration) / 10000.0) / 2.0;
+    distance = ((float)(duration / 29.0) / 2.0);
+  
     return distance;
   }
 
@@ -79,7 +83,7 @@ class Ultrasonic
     static int readIndex = 0;     // the index of the current reading
     static int total = 0;         // the running total
     int average = 0;              // the average
-
+  
     // subtract the last reading:
     total = total - readings[readIndex];
     // read from the sensor:
@@ -88,18 +92,18 @@ class Ultrasonic
     total = total + readings[readIndex];
     // advance to the next position in the array:
     readIndex = readIndex + 1;
-
+  
     // if we're at the end of the array...
-    if (readIndex >= numReadings)
+    if (readIndex >= numReadings) 
     {
       // ...wrap around to the beginning:
       readIndex = 0;
     }
-
+  
     // calculate the average:
     return average = total / numReadings;
   }
-
+  
   int trig_pin;
   int echo_pin;
 };
@@ -118,7 +122,7 @@ void move(uint32_t move_time, float motor_1, float motor_2, float motor_3, float
   profile_velocity[1] = move_time;
   profile_velocity[2] = move_time;
   profile_velocity[3] = move_time;
-
+  
   result = dxl_wb.syncWrite(PROFILE_VELOCITY_SYNC_WRITE_HANDLER, &profile_velocity[0], &log);
   if (result == false)
   {
@@ -209,7 +213,7 @@ void checkDXLError()
 {
   const char *log;
   bool result = false;
-
+  
   for (int cnt = 0; cnt < dxl_cnt; cnt++)
   {
     int32_t get_data = 0;
@@ -252,7 +256,7 @@ void checkDXLError()
   }
 }
 
-void setup()
+void setup() 
 {
   Serial.begin(57600);
 //  while(!Serial); // If this line is activated, you need to open Serial Terminal.
@@ -274,9 +278,9 @@ void setup()
   else
   {
     Serial.print("Succeeded to init : ");
-    Serial.println(BAUDRATE);
+    Serial.println(BAUDRATE);  
   }
-
+  
   for (int cnt = 0; cnt < dxl_cnt; cnt++)
   {
     uint16_t model_number = 0;
@@ -294,7 +298,7 @@ void setup()
       Serial.print(" model_number : ");
       Serial.println(model_number);
     }
-
+    
     result = dxl_wb.jointMode(dxl_id[cnt], 3000, 0, &log);
     if (result == false)
     {
@@ -320,12 +324,12 @@ void setup()
     Serial.println(log);
     Serial.println("Failed to add profile velocity sync write handler");
   }
-
+  
   move(3000, 0 + POSE_OFFSET, 0, 0, 0);
 }
 
-void loop()
-{
+void loop() 
+{  
   static uint8_t motion_cnt = 0;
   static bool flag = false;
 
@@ -337,12 +341,12 @@ void loop()
     {
       flag = true;
     }
-
+    
     float distance = ultrasonic.get_distance();
     Serial.print("ultrasonic : ");
     Serial.println(distance);
 
-    if (distance < 100.0)
+    if (distance < ULTRA_TRIGGER)
     {
       flag = true;
     }
