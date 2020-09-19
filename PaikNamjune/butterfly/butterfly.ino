@@ -28,8 +28,8 @@ int led_pin = 14;
 #define OPENED 0
 #define CLOSED 512
 
-#define FAST 1023
-#define SLOW 100
+#define FAST 300
+#define SLOW 50
 
 class Ultrasonic
 {
@@ -299,7 +299,7 @@ void move(int32_t spd, int32_t pos, uint32_t wait)
     dxl_wb.goalPosition(id, goal_position[0]);
   }
 
-  delay(wait);
+  delay(wait+10);
 }
 
 void move(int32_t id, int32_t spd, int32_t pos, uint32_t wait)
