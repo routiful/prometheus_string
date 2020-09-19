@@ -2,24 +2,17 @@
 
 #include <DynamixelWorkbench.h>
 
-#define WAIT_FOR_BUTTON_PRESS 0
-#define WAIT_SECOND 1
-#define CHECK_BUTTON_RELEASED 2
-
-#define SW_PIN 7
-
 #define TRIG_PIN  9
 #define ECHO_PIN  8
 
 #define DEG2RAD 0.0174533f
 
 #define DEVICE_NAME ""
-#define BAUDRATE  1000000
+#define BAUDRATE  57600
 
 #define DXL_ID_1  1
 #define DXL_ID_2  2
 #define DXL_ID_3  3
-#define DXL_ID_4  4
 
 #define GOAL_POSITION_SYNC_WRITE_HANDLER 0
 #define PROFILE_VELOCITY_SYNC_WRITE_HANDLER 1
@@ -34,8 +27,8 @@ uint32_t tTime = 0;
 
 DynamixelWorkbench dxl_wb;
 
-uint8_t dxl_id[4] = {DXL_ID_1, DXL_ID_2, DXL_ID_3, DXL_ID_4};
-const uint8_t dxl_cnt = 4;
+uint8_t dxl_id[3] = {DXL_ID_1, DXL_ID_2, DXL_ID_3};
+const uint8_t dxl_cnt = 3;
 
 class Ultrasonic
 {
@@ -110,18 +103,17 @@ class Ultrasonic
 
 Ultrasonic ultrasonic;
 
-void move(uint32_t move_time, float motor_1, float motor_2, float motor_3, float motor_4)
+void move(uint32_t move_time, float motor_1, float motor_2, float motor_3)
 {
   const char *log;
   bool result = false;
 
-  int32_t goal_position[4] = {0,0,0,0};
-  int32_t profile_velocity[4] = {0, 0, 0, 0};
+  int32_t goal_position[3] = {0,0,0};
+  int32_t profile_velocity[3] = {0, 0, 0};
 
   profile_velocity[0] = move_time;
   profile_velocity[1] = move_time;
   profile_velocity[2] = move_time;
-  profile_velocity[3] = move_time;
   
   result = dxl_wb.syncWrite(PROFILE_VELOCITY_SYNC_WRITE_HANDLER, &profile_velocity[0], &log);
   if (result == false)
@@ -133,7 +125,6 @@ void move(uint32_t move_time, float motor_1, float motor_2, float motor_3, float
   goal_position[0] = getValue(motor_1 * DEG2RAD);
   goal_position[1] = getValue(motor_2 * DEG2RAD);
   goal_position[2] = getValue(motor_3 * DEG2RAD);
-  goal_position[3] = getValue(motor_4 * DEG2RAD);
 
   result = dxl_wb.syncWrite(GOAL_POSITION_SYNC_WRITE_HANDLER, &goal_position[0], &log);
   if (result == false)
@@ -163,50 +154,6 @@ int32_t getValue(float radian)
   }
 
   return value;
-}
-
-bool getButtonPress(uint16_t time_to_press)
-{
-  bool result = false;
-  static uint32_t t_time = 0;
-  static uint8_t button_state = 0;
-
-  switch (button_state)
-  {
-    case WAIT_FOR_BUTTON_PRESS:
-      if (digitalRead(SW_PIN) == LOW)
-      {
-        t_time = millis();
-        button_state = WAIT_SECOND;
-      }
-      break;
-
-    case WAIT_SECOND:
-      if ((millis()-t_time) >= time_to_press)
-      {
-        if (digitalRead(SW_PIN) == LOW)
-        {
-          button_state = CHECK_BUTTON_RELEASED;
-          result = true;
-        }
-        else
-        {
-          button_state = WAIT_FOR_BUTTON_PRESS;
-        }
-      }
-      break;
-
-    case CHECK_BUTTON_RELEASED:
-      if (digitalRead(SW_PIN) == HIGH)
-        button_state = WAIT_FOR_BUTTON_PRESS;
-      break;
-
-    default :
-      button_state = WAIT_FOR_BUTTON_PRESS;
-      break;
-  }
-
-  return result;
 }
 
 void checkDXLError()
@@ -261,7 +208,6 @@ void setup()
   Serial.begin(57600);
 //  while(!Serial); // If this line is activated, you need to open Serial Terminal.
 
-  pinMode(SW_PIN, INPUT_PULLUP);
   pinMode(BDPIN_LED_USER_1, OUTPUT);
 
   ultrasonic.init(TRIG_PIN, ECHO_PIN);
@@ -325,31 +271,28 @@ void setup()
     Serial.println("Failed to add profile velocity sync write handler");
   }
   
-  move(3000, 0 + POSE_OFFSET, 0, 0, 0);
+  move(3000, 0, 0, 0);
 }
 
 void loop() 
 {  
   static uint8_t motion_cnt = 0;
-  static bool flag = false;
+  static bool flag = true;
 
   checkDXLError();
 
   if (flag == false)
-  {
-    if (getButtonPress(500) == true)
-    {
-      flag = true;
-    }
-    
-    float distance = ultrasonic.get_distance();
-    Serial.print("ultrasonic : ");
-    Serial.println(distance);
-
-    if (distance < ULTRA_TRIGGER)
-    {
-      flag = true;
-    }
+  { 
+//    float distance = ultrasonic.get_distance();
+//    Serial.print("ultrasonic : ");
+//    Serial.println(distance);
+//
+//    if (distance < ULTRA_TRIGGER)
+//    {
+//      flag = true;
+//    }
+    delay(5000);
+    flag = true;
   }
 
   switch (motion_cnt)
@@ -357,24 +300,7 @@ void loop()
     case 0:
       if (flag == true)
       {
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
+        move(3000, 30.0, 30.0, 30.0);
 
         flag = false;
         motion_cnt = 1;
@@ -384,24 +310,7 @@ void loop()
     case 1:
       if (flag == true)
       {
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
-        move(8000, 60.0 + POSE_OFFSET, -40.0, 40.0, -40.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(2000, -40.0 + POSE_OFFSET, 20.0, -20.0, 60.0);
-        move(2000, 40.0 + POSE_OFFSET, -20.0, 20.0, -60.0);
-        move(8000, -60.0 + POSE_OFFSET, 40.0, -40.0, 40.0);
+        move(3000, -30.0, -30.0, -30.0);
 
         flag = false;
         motion_cnt = 0;
