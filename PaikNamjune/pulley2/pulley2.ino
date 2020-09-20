@@ -1,18 +1,24 @@
-#include <DynamixelShield.h>
+/* Authors: Darby Lim */
 
-//#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
-//  #include <SoftwareSerial.h>
-//  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
-//  #define DEBUG_SERIAL soft_serial
-//#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
-//  #define DEBUG_SERIAL SerialUSB    
-//#else
-//  #define DEBUG_SERIAL Serial
-//#endif
-
-//#define FIRST_DXL 1
-//#define SECOND_DXL  2
-//#define THIRD_DXL  3
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
+  #include <SoftwareSerial.h>
+  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
+  #define DEBUG_SERIAL soft_serial
+#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
+  #define DEBUG_SERIAL SerialUSB
+#elif defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
+  // For OpenCR, there is a DXL Power Enable pin, so you must initialize and control it.
+  // Reference link : https://github.com/ROBOTIS-GIT/OpenCR/blob/master/arduino/opencr_arduino/opencr/libraries/DynamixelSDK/src/dynamixel_sdk/port_handler_arduino.cpp#L78
+  #define DXL_SERIAL   Serial3
+  #define DEBUG_SERIAL Serial
+  #include <Dynamixel2Arduino.h>
+  const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN. 
+  Dynamixel2Arduino dxl_shield(DXL_SERIAL, DXL_DIR_PIN);
+#else
+  #define DEBUG_SERIAL Serial
+  #include <DynamixelShield.h>
+  DynamixelShield dxl_shield;
+#endif
 
 #define DXL_CNT 15
 
@@ -23,9 +29,6 @@ const float DXL_ONE_ROTATION = 4096.0;
 const float DXL_HALF_ROTATION = 2048.0;
 const float DXL_ZERO_ROTATION = 0.0;
 
-#define DEBUG_SERIAL Serial
-
-DynamixelShield dxl_shield;
 const float DXL_PROTOCOL_VERSION = 2.0;
 
 #define STRING_BUF_NUM 64
