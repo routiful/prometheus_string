@@ -20,8 +20,8 @@
 #define POSE_OFFSET 50
 
 #define ULTRA_TRIGGER 400.0 // cm
-#define MOVE_TIME 3 // minute
-#define WAIT_TIME 3 // minute
+#define MOVE_TIME 5 // minute
+#define WAIT_TIME 10 // minute
 
 uint32_t tTime = 0;
 
@@ -194,11 +194,11 @@ void checkDXLError()
     }
     else
     {
-      Serial.print("Succeed to get hardware error status(value : ");
-      Serial.print(get_data);
-      Serial.print(" ");
-      Serial.print(dxl_id[cnt]);
-      Serial.println(")");
+//      Serial.print("Succeed to get hardware error status(value : ");
+//      Serial.print(get_data);
+//      Serial.print(" ");
+//      Serial.print(dxl_id[cnt]);
+//      Serial.println(")");
     }
   }
 }
@@ -301,8 +301,11 @@ void loop()
       case 0:
         if (flag == true)
         {
-          move(3000, 30.0, 30.0, 30.0);
-  
+          move(8000, 60.0, 50.0, 50.0);
+          move(8000, -30.0, -50.0, -30.0);
+          move(8000, 60.0, 50.0, 50.0);
+          move(8000, -30.0, -50.0, -30.0);
+          
           flag = false;
           motion_cnt = 1;
         }
@@ -311,7 +314,14 @@ void loop()
       case 1:
         if (flag == true)
         {
-          move(3000, -30.0, -30.0, -30.0);
+          move(4000, 30.0, 30.0, 30.0);
+          move(4000, -30.0, -30.0, -30.0);
+          move(4000, 30.0, 30.0, 30.0);
+          move(4000, -30.0, -30.0, -30.0);
+          move(4000, 30.0, 30.0, 30.0);
+          move(4000, -30.0, -30.0, -30.0);
+          move(4000, 30.0, 30.0, 30.0);
+          move(4000, -30.0, -30.0, -30.0);
   
           flag = false;
           motion_cnt = 0;
@@ -324,6 +334,7 @@ void loop()
   }
   else
   {
+    Serial.println("WAIT...");
     delay(WAIT_TIME * 1000);
     tick = millis();
   }
