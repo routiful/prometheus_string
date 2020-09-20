@@ -1,9 +1,9 @@
 #include <ESP8266WiFi.h> // ESP 8266 와이파이 라이브러리
 #include <ESP8266HTTPClient.h> // HTTP 클라이언트
 #include <Adafruit_NeoPixel.h> // 네오픽셀 라이브러리
-#define NUMPIXELS      100 // 네오픽셀 LED 수
+#define NUMPIXELS      30 // 네오픽셀 LED 수
 #define LED_PIN        D4 // 네오픽셀 입력 핀
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRBW + NEO_KHZ800); // 네오픽셀 객체
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800); // 네오픽셀 객체
 
 String start_create_date = "20200901";
 String end_create_date = "20201231";
@@ -46,7 +46,7 @@ void setup()
 
 
   // 와이파이 접속
-  WiFi.begin("aaaaa", "bbbbbb"); // 공유기 이름과 비밀번호
+  WiFi.begin("3Com5", ""); // 공유기 이름과 비밀번호
 
   Serial.print("Connecting");
   while (WiFi.status() != WL_CONNECTED) // 와이파이 접속하는 동안 "." 출력
@@ -146,7 +146,7 @@ void setLEDColor(int s) {
   else if (s == 6) // 매우 나쁨
     color = pixels.Color(255, 31, 0);
   else // 최악
-    color = pixels.Color(255, 0, 0);
+    color = pixels.Color(255, 33, 0);
   for (int i = 0; i < pixels.numPixels(); i++) {
     pixels.setPixelColor(i, color);
   }
