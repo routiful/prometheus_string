@@ -282,7 +282,7 @@ void loop()
   checkDXLError();
   
   static uint32_t tick = millis();
-  if ((millis() - tick) <= MOVE_TIME * 1000)
+  if ((millis() - tick) <= MOVE_TIME * 60 * 1000)
   {
     if (flag == false)
     { 
@@ -335,7 +335,7 @@ void loop()
   else
   {
     Serial.println("WAIT...");
-    delay(WAIT_TIME * 1000);
+    delay(WAIT_TIME * 60 * 1000);
     tick = millis();
   }
 }
