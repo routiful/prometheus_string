@@ -19,9 +19,9 @@
 
 #define POSE_OFFSET 50
 
-#define MOVE_TIME 5000 //ms
-
 #define ULTRA_TRIGGER 400.0 // cm
+#define MOVE_TIME 3 // minute
+#define WAIT_TIME 3 // minute
 
 uint32_t tTime = 0;
 
@@ -277,47 +277,54 @@ void setup()
 void loop() 
 {  
   static uint8_t motion_cnt = 0;
-  static bool flag = true;
+  static bool flag = false;
 
   checkDXLError();
-
-  if (flag == false)
-  { 
-//    float distance = ultrasonic.get_distance();
-//    Serial.print("ultrasonic : ");
-//    Serial.println(distance);
-//
-//    if (distance < ULTRA_TRIGGER)
-//    {
-//      flag = true;
-//    }
-    delay(5000);
-    flag = true;
-  }
-
-  switch (motion_cnt)
+  
+  static uint32_t tick = millis();
+  if ((millis() - tick) <= MOVE_TIME * 1000)
   {
-    case 0:
-      if (flag == true)
+    if (flag == false)
+    { 
+      float distance = ultrasonic.get_distance();
+      Serial.print("ultrasonic : ");
+      Serial.println(distance);
+  
+      if (distance < ULTRA_TRIGGER)
       {
-        move(3000, 30.0, 30.0, 30.0);
-
-        flag = false;
-        motion_cnt = 1;
+        flag = true;
       }
-     break;
-
-    case 1:
-      if (flag == true)
-      {
-        move(3000, -30.0, -30.0, -30.0);
-
-        flag = false;
-        motion_cnt = 0;
-      }
-     break;
-
-    default:
-     break;
+    }
+  
+    switch (motion_cnt)
+    {
+      case 0:
+        if (flag == true)
+        {
+          move(3000, 30.0, 30.0, 30.0);
+  
+          flag = false;
+          motion_cnt = 1;
+        }
+       break;
+  
+      case 1:
+        if (flag == true)
+        {
+          move(3000, -30.0, -30.0, -30.0);
+  
+          flag = false;
+          motion_cnt = 0;
+        }
+       break;
+  
+      default:
+       break;
+    }
+  }
+  else
+  {
+    delay(WAIT_TIME * 1000);
+    tick = millis();
   }
 }
