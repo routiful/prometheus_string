@@ -28,8 +28,11 @@ int led_pin = 14;
 #define OPENED 0
 #define CLOSED 512
 
-#define FAST 300
-#define SLOW 50
+#define FAST 100
+#define SLOW 30
+
+#define FAST_DELAY 2000
+#define SLOW_DELAY 7000
 
 class Ultrasonic
 {
@@ -165,34 +168,33 @@ void setup()
 
 void fast()
 {
-  move(FAST, OPENED, 1000);
-  move(FAST, CLOSED, 1000);
+  move(FAST, OPENED, FAST_DELAY);
+  move(FAST, CLOSED, FAST_DELAY);
 }
 
 void slow()
 {
-  move(SLOW, OPENED, 3000);
-  move(SLOW, CLOSED, 3000);
+  move(SLOW, OPENED, SLOW_DELAY);
+  move(SLOW, CLOSED, SLOW_DELAY);
 }
 
 void fast_slow()
 {
-  move(FAST, OPENED, 1000);
-  move(SLOW, CLOSED, 3000);
+  move(FAST, OPENED, FAST_DELAY);
+  move(SLOW, CLOSED, SLOW_DELAY);
 }
 
 void slow_fast()
 {
-  move(SLOW, OPENED, 1000);
-  move(FAST, CLOSED, 3000);
+  move(SLOW, CLOSED, SLOW_DELAY);
+  move(FAST, OPENED, FAST_DELAY);
 }
 
 void swing()
 {
   for (int i = 0; i < 10; i++)
   {
-    move(FAST, OPENED, 10);
-    move(FAST, CLOSED, 10);
+    fast();
   }
 
   slow();
@@ -202,12 +204,12 @@ void stair_slow()
 {
   for (int cnt = 0; cnt < DXL_CNT; cnt++)
   {
-    move(dxl_id[cnt], SLOW, OPENED, 1000);
+    move(dxl_id[cnt], SLOW, OPENED, SLOW_DELAY);
   }
 
   for (int cnt = 0; cnt < DXL_CNT; cnt++)
   {
-    move(dxl_id[cnt], SLOW, CLOSED, 1000);
+    move(dxl_id[cnt], SLOW, CLOSED, SLOW_DELAY);
   }
 }
 
@@ -215,12 +217,12 @@ void stair_fast()
 {
   for (int cnt = 0; cnt < DXL_CNT; cnt++)
   {
-    move(dxl_id[cnt], FAST, OPENED, 100);
+    move(dxl_id[cnt], FAST, OPENED, FAST_DELAY);
   }
 
   for (int cnt = 0; cnt < DXL_CNT; cnt++)
   {
-    move(dxl_id[cnt], FAST, CLOSED, 100);
+    move(dxl_id[cnt], FAST, CLOSED, FAST_DELAY);
   }
 }
 
@@ -299,7 +301,7 @@ void move(int32_t spd, int32_t pos, uint32_t wait)
     dxl_wb.goalPosition(id, goal_position[0]);
   }
 
-  delay(wait+10);
+  delay(wait+50);
 }
 
 void move(int32_t id, int32_t spd, int32_t pos, uint32_t wait)
