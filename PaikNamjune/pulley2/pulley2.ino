@@ -1,26 +1,18 @@
 /* Authors: Darby Lim */
 
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
-  #include <SoftwareSerial.h>
-  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
-  #define DEBUG_SERIAL soft_serial
-#elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
-  #define DEBUG_SERIAL SerialUSB
-#elif defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
-  // For OpenCR, there is a DXL Power Enable pin, so you must initialize and control it.
-  // Reference link : https://github.com/ROBOTIS-GIT/OpenCR/blob/master/arduino/opencr_arduino/opencr/libraries/DynamixelSDK/src/dynamixel_sdk/port_handler_arduino.cpp#L78
-  #define DXL_SERIAL   Serial3
-  #define DEBUG_SERIAL Serial
-  #include <Dynamixel2Arduino.h>
-  const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN. 
-  Dynamixel2Arduino dxl_shield(DXL_SERIAL, DXL_DIR_PIN);
-#else
-  #define DEBUG_SERIAL Serial
-  #include <DynamixelShield.h>
-  DynamixelShield dxl_shield;
-#endif
+#include <DynamixelWorkbench.h>
 
-#define DXL_CNT 15
+#if defined(__OPENCM904__)
+  #define DEVICE_NAME "3" //Dynamixel on Serial3(USART3)  <-OpenCM 485EXP
+#elif defined(__OPENCR__)
+  #define DEVICE_NAME ""
+#endif   
+
+#define BAUDRATE 1000000
+
+#define DXL_CNT 2
+const uint8_t dxl_id[DXL_CNT] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+int32_t goal_position[DXL_CNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 const float UP = 1.0; // CW
 const float DOWN = -1.0; // CCW
@@ -29,66 +21,96 @@ const float DXL_ONE_ROTATION = 4096.0;
 const float DXL_HALF_ROTATION = 2048.0;
 const float DXL_ZERO_ROTATION = 0.0;
 
-const float DXL_PROTOCOL_VERSION = 2.0;
-
 #define STRING_BUF_NUM 64
 String cmd[STRING_BUF_NUM];
 
+const uint32_t MOVE_TIME = 100; // milliseconds
+
+DynamixelWorkbench dxl_wb;
+
 void dxl_setup(uint8_t id)
 {
-  dxl_shield.ping(id);
-
-  dxl_shield.torqueOff(id);
+  const char *log;
+  bool result = false;
   
-  const int8_t EXTENDED_POSITION_CONTROL_MODE = 4;
-  dxl_shield.writeControlTableItem(OPERATING_MODE, id, EXTENDED_POSITION_CONTROL_MODE);
+  uint16_t model_number = 0;
+  result = dxl_wb.ping(id, &model_number, &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to ping");
+  }
+  else
+  {
+    Serial.println("Succeeded to ping");
+    Serial.print("id : ");
+    Serial.print(id);
+    Serial.print(" model_number : ");
+    Serial.println(model_number);
+  }
 
-  const int8_t TIME_BASED_PROFILE = 4;
-  dxl_shield.writeControlTableItem(DRIVE_MODE, id, TIME_BASED_PROFILE);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, id, 0);
-  dxl_shield.writeControlTableItem(HOMING_OFFSET, id, -1 * dxl_shield.getPresentPosition(id));
+  dxl_wb.itemWrite(id, "Homing_Offset", 0);
+  
+  int32_t present_position = 0;
+  dxl_wb.itemRead(id, "Present_Position", &present_position, &log);
+  
+  dxl_wb.itemWrite(id, "Homing_Offset", -1 * present_position);
 
-  dxl_shield.torqueOn(id);
+  int32_t homing_offset = 0;
+  result = dxl_wb.itemRead(id, "Homing_Offset", &homing_offset, &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to get homing offset");
+  }
+  else
+  {
+    Serial.print("Succeeded to homing offset ");
+    Serial.println(homing_offset);
+  }
+
+  dxl_wb.itemWrite(id, "Profile_Velocity", MOVE_TIME);
+  dxl_wb.itemWrite(id, "Profile_Acceleration", 0);
+
+  dxl_wb.torqueOn(id);
 }
 
 void setup() 
 {
-  DEBUG_SERIAL.begin(115200);
-//  while(!DEBUG_SERIAL);
+  Serial.begin(115200);
+//  while(!Serial);
 
-  dxl_shield.begin(1000000);
-  dxl_shield.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+  const char *log;
+  bool result = false;
   
-  for (uint8_t cnt = 0, id = 1; cnt < DXL_CNT; cnt++, id++)
+  result = dxl_wb.init(DEVICE_NAME, BAUDRATE, &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to init");
+  }
+  else
+  {
+    Serial.print("Succeeded to init : ");
+    Serial.println(BAUDRATE);  
+  }
+
+  for (uint8_t cnt = 0, id = dxl_id[0]; cnt < DXL_CNT; cnt++, id++)
   {
     dxl_setup(id);
   }
+
+  result = dxl_wb.addSyncWriteHandler(dxl_id[0], "Goal_Position", &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to add sync write handler");
+  }
 }
 
-void set_profile(uint8_t id, int32_t move_time = 2000)
+void move(String * goal_height)
 {
-  dxl_shield.writeControlTableItem(PROFILE_ACCELERATION, id, 0);
-  dxl_shield.writeControlTableItem(PROFILE_VELOCITY, id, move_time); 
-}
-
-void to_rotation(uint8_t id, float dir, float dxl_unit, int32_t move_time = 2000)
-{
-  set_profile(id, move_time);
-  dxl_shield.setGoalPosition(id, dir * dxl_unit);
-}
-
-void from_rotation(uint8_t id, float dir, float dxl_unit, int32_t move_time = 2000)
-{
-  set_profile(id, move_time);
-
-  static float goal_position = 0.0;
-  goal_position = dxl_shield.getPresentPosition(id) + (dir * dxl_unit);
-  dxl_shield.setGoalPosition(id, goal_position);
-}
-
-void move(uint8_t id, float goal_height, int32_t move_time = 2000)
-{
-  if (goal_height < 0.0) 
+  if (goal_height == NULL) 
   {
     return;
   }
@@ -96,27 +118,25 @@ void move(uint8_t id, float goal_height, int32_t move_time = 2000)
   const float PULLEY_RADIUS = 30.0; // millis
   const float PULLEY_BORDER_LENGTH = 2 * PI * PULLEY_RADIUS; // 188 millis per one rotation
   const float HEIGHT_PER_ONE_DXL_UNIT = PULLEY_BORDER_LENGTH / DXL_ONE_ROTATION;
-  
-  float present_height = dxl_shield.getPresentPosition(id, UNIT_RAW) * HEIGHT_PER_ONE_DXL_UNIT;
 
-//  DEBUG_SERIAL.print(PULLEY_RADIUS);
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.print(PULLEY_BORDER_LENGTH);
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.print(HEIGHT_PER_ONE_DXL_UNIT);
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.print(dxl_shield.getPresentPosition(id, UNIT_RAW));
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.print(present_height);
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.print(goal_height);
-//  DEBUG_SERIAL.print(" ");
-//  DEBUG_SERIAL.println(dir);
+  for (uint8_t cnt = 0; cnt < DXL_CNT; cnt++)
+  {
+    goal_position[cnt] = goal_height[cnt].toInt() / HEIGHT_PER_ONE_DXL_UNIT;
+  }
 
-  to_rotation(id, UP, goal_height / HEIGHT_PER_ONE_DXL_UNIT, move_time);
+  const char *log;
+  bool result = false;
+
+  const uint8_t handler_index = 0;
+  result = dxl_wb.syncWrite(handler_index, &goal_position[0], &log);
+  if (result == false)
+  {
+    Serial.println(log);
+    Serial.println("Failed to sync write position");
+  }
 }
 
-void split(String data, char separator, String* temp)
+void split(String data, char separator, String * temp)
 {
   int cnt = 0;
   int get_index = 0;
@@ -145,26 +165,18 @@ void split(String data, char separator, String* temp)
 void loop() 
 {
   static uint32_t tick = millis();
-  if (DEBUG_SERIAL.available() > 0) 
+  if (Serial.available() > 0) 
   {
-      String read_string = DEBUG_SERIAL.readStringUntil('\n');
-//      DEBUG_SERIAL.println(String(read_string));
+      String read_string = Serial.readStringUntil('\n');
+      Serial.println(String(read_string));
 
       read_string.trim();
       split(read_string, ' ', cmd);
   }
 
-  uint32_t move_time = 50; // milliseconds
-  if ((millis()-tick) >= move_time)
+  if ((millis()-tick) >= MOVE_TIME)
   {
-    for (uint8_t cnt = 0, id = 1; cnt < DXL_CNT; cnt++, id++)
-    {
-      move(id, cmd[cnt].toInt(), move_time); // miilis
-    }
-//    move(FIRST_DXL, cmd[0].toInt(), move_time); // miilis
-//    move(SECOND_DXL, cmd[1].toInt(), move_time); // miilis 
-//    move(THIRD_DXL, cmd[2].toInt(), move_time); // miilis 
-    
+    move(cmd);
     tick = millis();
   }
 }
